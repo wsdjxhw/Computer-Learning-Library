@@ -6,6 +6,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Claude Code 本地会话目录
+.claude/
+
 # 通用临时文件
 *.tmp
 *.log
