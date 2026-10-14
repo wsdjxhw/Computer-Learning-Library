@@ -1,0 +1,7 @@
+interface:
+  display_name: "计算机学习库维护"
+  short_description: "组织学习主题并生成详解与注释示例代码"
+  default_prompt: "使用 $computer-learning-library 在学习库中创建一个新的计算机知识主题。"
+
+policy:
+  allow_implicit_invocation: true

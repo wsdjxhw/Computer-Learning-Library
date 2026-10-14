@@ -1,0 +1,11 @@
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+
+# 常见编辑器临时目录
+.idea/
+.vscode/
+
+# 通用临时文件
+*.tmp
+*.log
