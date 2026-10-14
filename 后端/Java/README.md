@@ -14,8 +14,19 @@ Java 属于面试八股密集的语言，因此本目录每个知识点的 `知�
 
 ## 内容规划
 
-- `语言基础/`：数据类型与变量、字符串、面向对象三大特性、接口与抽象类、异常处理、泛型（已有）
-- `集合框架/`：ArrayList、HashMap（已有）
-- 待补（JavaSE 后半部分）：常用 API 与 IO 流、多线程基础、反射与注解、Lambda 与 Stream
+### 已完成（31 个知识点）
+
+- `语言基础/`：数据类型与变量、字符串、面向对象三大特性、接口与抽象类、异常处理、泛型、常用API、反射与注解、Lambda与Stream
+- `集合框架/`：ArrayList、HashMap、HashSet与LinkedHashSet、TreeMap与比较器、LinkedList与ArrayDeque、LinkedHashMap与LRU、迭代器与fail-fast、ConcurrentHashMap与并发容器
+- `IO流/`：字节流与字符流、文件与Path、NIO基础
+- `并发编程/`：多线程基础、线程池、锁与原子类、并发工具类、CompletableFuture异步编程
+- `网络编程/`：TCP通信、UDP通信
+- `JVM/`：内存结构、GC与垃圾收集器、类加载与双亲委派、调优工具与OOM排查
+
+JavaSE 主干（语言 → 集合 → IO → 并发 → 网络 → JVM）全部完成，**JavaSE 至此定稿**。
+
+### 定稿说明
+
+并发深入（JMM/AQS/ThreadLocal）、Java 新特性纵览（record/虚拟线程）、序列化等主题暂不展开，日后有需要再按需补充。框架（Maven、Spring 系、Netty）与数据库/中间件等非 JavaSE 主题不进本目录，规划见[后端总 README](../README.md)。
 
 新增知识点时，先判断是否与已有主题共享稳定的中间分类，再决定目录层级。
