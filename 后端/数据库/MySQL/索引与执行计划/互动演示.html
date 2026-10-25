@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>索引与执行计划 · 互动演示</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#fff; --ink:#1f2933; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2563eb; --cur:#2563eb; --path:#dbeafe; --cmp:#f59e0b;
+    --green:#dcfce7; --greenInk:#166534; --amber:#fef3c7; --amberInk:#92400e;
+    --gray:#f3f4f6; --grayInk:#6b7280; --redInk:#991b1b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
+  header{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+  header h1{margin:0 0 6px;font-size:20px}
+  .howto{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 12px;font-size:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:8px 18px;border:1px solid var(--line);background:var(--card);border-radius:8px 8px 0 0;cursor:pointer;font-size:15px}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:0 12px 12px 12px;padding:18px}
+  .panel.active{display:block}
+
+  /* B+ 树部分 */
+  .btree{display:flex;flex-direction:column;gap:18px;align-items:center;margin:10px 0 6px}
+  .level{display:flex;gap:26px;justify-content:center;flex-wrap:wrap}
+  .node{border:2px solid var(--line);border-radius:10px;background:#fff;padding:6px 8px;display:flex;gap:6px;align-items:center;transition:all .15s}
+  .node .tag{font-size:11px;color:var(--muted);margin-right:2px}
+  .node.path{background:var(--path);border-color:#93c5fd}
+  .node.cur{border-color:var(--cur);box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+  .node.leaf{min-width:190px;justify-content:center}
+  .key{min-width:30px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:2px 4px;font-size:13px;background:#fafafa}
+  .key.cmp{background:var(--cmp);color:#fff;border-color:var(--cmp);font-weight:700}
+  .key.hit{background:#16a34a;color:#fff;border-color:#16a34a;font-weight:700}
+  .arrow-row{color:#cbd5e1;font-size:18px;letter-spacing:4px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0;padding:12px;background:#fafafa;border-radius:8px}
+  .controls input[type=number]{width:90px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:15px}
+  button{padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-size:14px}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stats{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 16px;text-align:center;min-width:130px}
+  .stat b{display:block;font-size:22px;color:var(--accent)}
+  .stat span{font-size:12px;color:var(--muted)}
+  .log{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 14px;font-family:Consolas,monospace;font-size:13px;min-height:120px;max-height:220px;overflow:auto}
+  .log .m{margin:2px 0}
+  .log .m.now{color:#fbbf24}
+  .log .m.done{color:#4ade80}
+  .note{font-size:13px;color:var(--muted);margin-top:10px}
+
+  /* 最左前缀部分 */
+  .condgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px}
+  .condcard{background:#fafafa;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .condcard h4{margin:0 0 8px;font-size:13px;color:var(--muted)}
+  .condcard label{display:block;font-size:14px;margin:5px 0;cursor:pointer}
+  .idxcols{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  .idxcol{flex:1;min-width:180px;border:2px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+  .idxcol h4{margin:0 0 4px;font-size:14px}
+  .idxcol p{margin:0;font-size:13px}
+  .idxcol.seek{background:var(--green);border-color:#86efac}
+  .idxcol.seek h4, .idxcol.seek p{color:var(--greenInk)}
+  .idxcol.filter{background:var(--amber);border-color:#fcd34d}
+  .idxcol.filter h4, .idxcol.filter p{color:var(--amberInk)}
+  .idxcol.dead{background:var(--gray)}
+  .idxcol.dead h4, .idxcol.dead p{color:var(--grayInk)}
+  .plan{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;font-family:Consolas,monospace;font-size:14px;overflow:auto}
+  .plan .k{color:#7dd3fc}
+  .plan .good{color:#4ade80}
+  .plan .warn{color:#fbbf24}
+  .plan .bad{color:#f87171}
+  .fact{margin-top:12px;padding:10px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:13px;color:var(--greenInk)}
+  .sqlpreview{margin:6px 0 12px;padding:10px 12px;background:#f8fafc;border:1px dashed var(--line);border-radius:8px;font-family:Consolas,monospace;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>索引与执行计划 · 互动演示</h1>
+    <div class="howto">怎么玩：① 在「B+ 树查找模拟器」里输入 1~63 任意键，逐步看它怎么从根走到叶子，并与全表扫描对比；② 在「最左前缀判断器」里勾选查询条件，看联合索引 (city, age, created_at) 能用到第几列、EXPLAIN 会长什么样。</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="btree">① B+ 树查找模拟器</button>
+    <button class="tab" data-tab="prefix">② 最左前缀判断器</button>
+  </div>
+
+  <!-- ============ 面板一：B+ 树 ============ -->
+  <section class="panel active" id="panel-btree">
+    <div class="controls">
+      <span style="font-size:14px;color:var(--muted)">要查找的键（1~63）</span>
+      <input type="number" id="targetKey" value="57" min="1" max="63">
+      <button class="primary" id="btnSearch">查找</button>
+      <button id="btnRandom">随机一个</button>
+      <button id="btnPrev" disabled>← 上一步</button>
+      <button id="btnNext" disabled>下一步 →</button>
+      <button id="btnAuto" disabled>▶ 自动播放</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b id="stNodes">0</b><span>已访问节点</span></div>
+      <div class="stat"><b id="stCmp">0</b><span>比较次数</span></div>
+      <div class="stat"><b>3~4</b><span>B+树总层数(千万行级)</span></div>
+      <div class="stat"><b id="stFull">63</b><span>全表扫描最坏要看的行数</span></div>
+    </div>
+
+    <div class="btree" id="btree"></div>
+    <div class="log" id="blog"></div>
+    <div class="note">这棵树 63 个键、3 层；真实的 InnoDB 页 16KB、单页上千个入口，千万行也只有 3~4 层——每层一次页读取，这就是"索引为什么快"。查找规则与示例一致：目标 &lt; 分隔键 → 走左边孩子，否则继续向右。</div>
+  </section>
+
+  <!-- ============ 面板二：最左前缀 ============ -->
+  <section class="panel" id="panel-prefix">
+    <div class="condgrid">
+      <div class="condcard">
+        <h4>第 1 列 city（VARCHAR(20)，82 字节）</h4>
+        <label><input type="radio" name="c1" value="none" checked> 不出现在 WHERE 里</label>
+        <label><input type="radio" name="c1" value="eq"> city = '北京'（等值）</label>
+        <label><input type="radio" name="c1" value="pre"> city LIKE '北%'（前缀）</label>
+        <label><input type="radio" name="c1" value="suf"> city LIKE '%京'（后缀通配）</label>
+      </div>
+      <div class="condcard">
+        <h4>第 2 列 age（TINYINT，1 字节）</h4>
+        <label><input type="radio" name="c2" value="none" checked> 不出现在 WHERE 里</label>
+        <label><input type="radio" name="c2" value="eq"> age = 25（等值）</label>
+        <label><input type="radio" name="c2" value="gt"> age &gt; 30（范围）</label>
+      </div>
+      <div class="condcard">
+        <h4>第 3 列 created_at（DATETIME，5 字节）</h4>
+        <label><input type="radio" name="c3" value="none" checked> 不出现在 WHERE 里</label>
+        <label><input type="radio" name="c3" value="lt"> created_at &lt; '2025-01-01'（范围）</label>
+      </div>
+      <div class="condcard">
+        <h4>不在索引里的列</h4>
+        <label><input type="checkbox" id="cUser"> username = 'user_01'（不在索引中）</label>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 0">联合索引：idx(city, age, created_at)，主键 id 天然包含在叶子节点里。</p>
+      </div>
+    </div>
+
+    <div class="sqlpreview" id="sqlPreview"></div>
+
+    <div class="idxcols">
+      <div class="idxcol" id="colCity"><h4>city</h4><p></p></div>
+      <div class="idxcol" id="colAge"><h4>age</h4><p></p></div>
+      <div class="idxcol" id="colCreated"><h4>created_at</h4><p></p></div>
+      <div class="idxcol" id="colUser"><h4>username</h4><p></p></div>
+    </div>
+
+    <div class="plan" id="planOut"></div>
+    <div class="fact" id="factOut"></div>
+    <div class="note">图例：<b style="color:var(--greenInk)">绿=参与定位（算进 key_len）</b>，<b style="color:var(--amberInk)">黄=只能在索引里"边扫边筛"（ICP/回表后过滤）</b>，灰=用不上。本页为简化模型：默认查询只取 id（覆盖）；实际以 EXPLAIN 为准。</div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ================= Tab 切换 ================= */
+document.querySelectorAll(".tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".tab").forEach(function(b){b.classList.remove("active");});
+    document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ================= 面板一：B+ 树查找模拟器 ================= */
+/* 固定一棵 3 层 B+ 树：63 个键；非叶子节点只放分隔键，叶子放全部数据并按链表相连 */
+var TREE = {
+  root:  {id:"root",  seps:[22,44]},
+  inner: [
+    {id:"n1", seps:[8,15],  leaves:[[1,7],[8,14],[15,21]]},
+    {id:"n2", seps:[29,36], leaves:[[22,28],[29,35],[36,43]]},
+    {id:"n3", seps:[51,58], leaves:[[44,50],[51,57],[58,63]]}
+  ]
+};
+var steps = [], stepIdx = -1, target = 57, autoTimer = null;
+
+/* 在一个非叶子节点里从左到右比较分隔键：目标 < 分隔键 → 走该键左边的孩子；
+   全部不小于 → 走最右孩子。每个比较生成一步。返回选中的孩子下标。 */
+function walkNode(nodeId, seps, label, thing, s, t){
+  var idx = seps.length;
+  for(var i=0;i<seps.length;i++){
+    var goLeft = t < seps[i];
+    var tail = goLeft ? "是 → 走第 " + (i+1) + " 个" + thing
+                      : (i === seps.length-1 ? "否 → 已是最右键，走第 " + (seps.length+1) + " 个" + thing
+                                             : "否 → 继续向右比下一个键");
+    s.push({node:nodeId, key:seps[i], type:"cmp",
+            msg:label + "比较：" + t + " < " + seps[i] + " ? " + tail});
+    if(goLeft){ idx = i; break; }
+  }
+  return idx;
+}
+
+function buildSteps(t){
+  var s = [];
+  s.push({node:"root", type:"enter", msg:"从根节点出发（读取第 1 个 16KB 页）"});
+  var gi = walkNode("root", TREE.root.seps, "根节点", "孩子", s, t);
+  var node = TREE.inner[gi];
+  s.push({node:node.id, type:"enter", msg:"进入内节点（读取第 2 个页）——内节点只放分隔键，不放数据"});
+  var li = walkNode(node.id, node.seps, "内节点", "叶子", s, t);
+  var leaf = node.leaves[li];
+  s.push({node:"leaf-"+gi+"-"+li, type:"enter", msg:"进入叶子页（读取第 3 个页）——真实数据都在叶子层，叶子间有链表相连"});
+  for(var m=0;m<leaf.length;m++){
+    if(leaf[m] === t){
+      s.push({node:"leaf-"+gi+"-"+li, key:leaf[m], type:"hit",
+              msg:"叶子内比较：" + t + " = " + leaf[m] + " ? 是 → <b>找到了！</b>"});
+      break;
+    }
+    s.push({node:"leaf-"+gi+"-"+li, key:leaf[m], type:"cmp",
+            msg:"叶子内比较：" + t + " > " + leaf[m] + " ? 是 → 向右挪一个键"});
+  }
+  var nCmp = s.filter(function(x){ return x.type === "cmp" || x.type === "hit"; }).length;
+  s.push({node:"done", type:"done",
+          msg:"查找完成：访问 3 个节点 = 3 次页读取，共比较 " + nCmp + " 次；全表扫描最坏要看 63 行——数据量越大差距越悬殊。"});
+  return s;
+}
+
+function renderBtree(){
+  var host = document.getElementById("btree");
+  var html = "";
+  html += "<div class='level'><div class='node' id='nd-root'><span class='tag'>根</span>" +
+          TREE.root.seps.map(function(k){return "<span class='key' data-k='"+k+"'>"+k+"</span>";}).join("") + "</div></div>";
+  html += "<div class='arrow-row'>↓ ↓ ↓</div>";
+  html += "<div class='level'>";
+  TREE.inner.forEach(function(n, gi){
+    html += "<div class='node' id='nd-"+n.id+"'><span class='tag'>内</span>" +
+            n.seps.map(function(k){return "<span class='key' data-k='"+k+"'>"+k+"</span>";}).join("") + "</div>";
+  });
+  html += "</div>";
+  html += "<div class='arrow-row'>↓ ↓ ↓</div>";
+  html += "<div class='level'>";
+  TREE.inner.forEach(function(n, gi){
+    n.leaves.forEach(function(lf, li){
+      var arr = [];
+      for(var k=lf[0];k<=lf[1];k++) arr.push(k);
+      html += "<div class='node leaf' id='nd-leaf-"+gi+"-"+li+"'><span class='tag'>叶</span>" +
+              arr.map(function(k){return "<span class='key' data-k='"+k+"'>"+k+"</span>";}).join("") + "</div>";
+    });
+  });
+  html += "</div>";
+  host.innerHTML = html;
+}
+
+function paint(){
+  /* 清空高亮 */
+  document.querySelectorAll(".node").forEach(function(n){ n.classList.remove("path","cur"); });
+  document.querySelectorAll(".key").forEach(function(k){ k.classList.remove("cmp","hit"); });
+
+  var visitedNodes = {}, nodeCmpKey = null, lastType = null, hitKey = null;
+  for(var i=0;i<=stepIdx && i<steps.length;i++){
+    var st = steps[i];
+    if(st.node && st.node !== "done") visitedNodes["nd-" + st.node] = true;
+    if(st.type === "cmp" && i === stepIdx){ nodeCmpKey = st.key; }
+    if(st.type === "hit"){ hitKey = st.key; }
+    lastType = st.type;
+  }
+  Object.keys(visitedNodes).forEach(function(id){
+    var el = document.getElementById(id);
+    if(el){ el.classList.add("path"); }
+  });
+  var curStep = steps[stepIdx];
+  if(curStep && curStep.node && curStep.node !== "done"){
+    var curEl = document.getElementById("nd-" + curStep.node);
+    if(curEl) curEl.classList.add("cur");
+  }
+  /* 命中过的键标绿；当前步正在比较的键标橙（限定在对应节点内，避免误亮别处同值键） */
+  for(var j=0;j<=stepIdx;j++){
+    var stj = steps[j];
+    if(stj.key === undefined || stj.node === "done") continue;
+    if(stj.type === "hit" || j === stepIdx){
+      var cls = stj.type === "hit" ? "hit" : "cmp";
+      var sel = "#nd-" + stj.node + " .key[data-k='" + stj.key + "']";
+      document.querySelectorAll(sel).forEach(function(el){ el.classList.add(cls); });
+    }
+  }
+
+  /* 统计 */
+  var nCmp = 0, nHit = false;
+  for(var c=0;c<=stepIdx;c++){
+    if(steps[c].type === "cmp") nCmp++;
+    if(steps[c].type === "hit") nHit = true;
+  }
+  document.getElementById("stNodes").textContent = Object.keys(visitedNodes).length;
+  document.getElementById("stCmp").textContent = nCmp + (nHit ? 1 : 0);
+
+  /* 日志 */
+  var log = "";
+  for(var L=0;L<steps.length;L++){
+    if(L > stepIdx) break;
+    var cls = (L === stepIdx) ? "now" : (steps[L].type === "done" ? "done" : "");
+    log += "<div class='m " + cls + "'>" + (L+1) + ". " + steps[L].msg + "</div>";
+  }
+  document.getElementById("blog").innerHTML = log || "<div class='m'>点击「查找」开始。</div>";
+
+  document.getElementById("btnPrev").disabled = stepIdx <= 0;
+  document.getElementById("btnNext").disabled = stepIdx >= steps.length - 1;
+  document.getElementById("btnAuto").disabled = steps.length === 0;
+}
+
+function startSearch(){
+  var v = parseInt(document.getElementById("targetKey").value, 10);
+  if(isNaN(v) || v < 1 || v > 63){ alert("请输入 1~63 之间的键"); return; }
+  stopAuto();
+  target = v;
+  steps = buildSteps(v);
+  stepIdx = 0;
+  paint();
+}
+
+function stopAuto(){
+  if(autoTimer){ clearInterval(autoTimer); autoTimer = null; document.getElementById("btnAuto").textContent = "▶ 自动播放"; }
+}
+
+document.getElementById("btnSearch").addEventListener("click", startSearch);
+document.getElementById("btnRandom").addEventListener("click", function(){
+  document.getElementById("targetKey").value = 1 + Math.floor(Math.random()*63);
+  startSearch();
+});
+document.getElementById("btnPrev").addEventListener("click", function(){ stopAuto(); stepIdx = Math.max(0, stepIdx-1); paint(); });
+document.getElementById("btnNext").addEventListener("click", function(){ stopAuto(); stepIdx = Math.min(steps.length-1, stepIdx+1); paint(); });
+document.getElementById("btnAuto").addEventListener("click", function(){
+  if(autoTimer){ stopAuto(); return; }
+  this.textContent = "⏸ 暂停";
+  autoTimer = setInterval(function(){
+    if(stepIdx >= steps.length-1){ stopAuto(); return; }
+    stepIdx++; paint();
+  }, 700);
+});
+document.getElementById("targetKey").addEventListener("keydown", function(e){ if(e.key === "Enter") startSearch(); });
+
+/* ================= 面板二：最左前缀判断器 ================= */
+function rv(name){
+  var el = document.querySelector("input[name='" + name + "']:checked");
+  return el ? el.value : "none";
+}
+var FACTS = {
+  "eq|eq|none":      "示例 3.1 实测：type=<b>ref</b>，key_len=<b>83</b>，Extra=<b>Using index</b>。",
+  "none|eq|none":    "示例 3.2 实测：type=range，key_len=83，Extra=<b>Using where; Using index for skip scan</b>——8.0 枚举 10 个 city 救场，但仍要摸约 1 万条索引记录。",
+  "pre|none|none":   "示例 3.3 实测：type=<b>range</b>，key_len=<b>82</b>——前缀模糊等价于范围定位。",
+  "suf|none|none":   "示例 3.3 实测：SELECT * 时 type=<b>ALL</b>（全表）；只查 id 时 type=index（扫整棵索引兜底）。前导通配符定不了位。",
+  "eq|gt|lt":        "示例 3.4 实测：SELECT * 时 Extra=<b>Using index condition</b>（ICP，created_at 的过滤在索引层完成）；key_len 停在 <b>83</b>——age 范围之后 created_at 不再参与定位。",
+  "eq|eq|lt":        "示例 3.5 实测：type=range，key_len=<b>88</b>（82+1+5），三列都参与定位。"
+};
+
+function evalPrefix(){
+  var c1 = rv("c1"), c2 = rv("c2"), c3 = rv("c3"), user = document.getElementById("cUser").checked;
+
+  /* 逐列判定：state = seek(定位) / filter(索引内筛) / dead(用不上) / icp */
+  var city = {state:"dead", text:"未出现在条件里"};
+  if(c1 === "eq"){ city = {state:"seek", text:"等值定位", bytes:82}; }
+  if(c1 === "pre"){ city = {state:"seek", text:"范围定位（前缀=区间起点）", bytes:82, range:true}; }
+  if(c1 === "suf"){ city = {state:"dead", text:"前导通配符，定不了位，整棵索引废掉"}; }
+
+  var age = {state:"dead", text:"—"};
+  if(c2 !== "none"){
+    if(city.state === "seek" && !city.range){
+      age = (c2 === "eq") ? {state:"seek", text:"等值定位", bytes:1} : {state:"seek", text:"范围端点，参与定位后断链", bytes:1, range:true};
+    }else if(city.state === "seek" && city.range){
+      age = {state:"filter", text:"只能索引内筛选（city 已是范围）"};
+    }else if(city.state === "dead" && c1 === "none"){
+      age = {state:"filter", text:"跳过了第一列，正常走不了；8.0 可能 Skip Scan 兜底"};
+    }else{
+      age = {state:"filter", text:"索引已断，只能扫描时顺带筛"};
+    }
+  }
+
+  var created = {state:"dead", text:"—"};
+  if(c3 !== "none"){
+    if(city.state === "seek" && !city.range && age.state === "seek" && !age.range){
+      created = {state:"seek", text:"范围定位（前两列等值，链没断）", bytes:5, range:true};
+    }else if(age.range){
+      created = {state:"filter", text:"ICP 索引下推：在索引层筛掉，不回表"};
+    }else{
+      created = {state:"filter", text:"只能扫描时顺带筛"};
+    }
+  }
+
+  var ustate = user ? {state:"dead", text:"不在索引里，只能回表后过滤"} : {state:"dead", text:"未出现"};
+
+  /* key_len 与 type 预测 */
+  var keyLen = 0, anySeek = false, anyRange = false;
+  [city, age, created].forEach(function(c){
+    if(c.state === "seek"){ keyLen += c.bytes; anySeek = true; if(c.range) anyRange = true; }
+  });
+  var type, extras = [], hasFilterCol = false;
+  [age, created].forEach(function(c){ if(c.state === "filter") hasFilterCol = true; });
+  if(anySeek){
+    type = anyRange ? "range" : "ref";
+    if(hasFilterCol || user) extras.push("Using where");
+  }else if(c1 === "none" && c2 !== "none"){
+    type = "range";
+    if(c2 === "eq") keyLen = 83;   /* skip scan 实测 key_len=83（city 全枚举 + age） */
+    extras.push("Using where");
+    extras.push("Using index for skip scan（8.0 兜底）");
+  }else{
+    type = "ALL / index";
+    extras.push("全表扫描；若查询只取索引列则退化为整索引扫描(type=index)");
+  }
+  var covered = !user; /* 本页默认只查 id → 覆盖 */
+  if(covered) extras.push("Using index（覆盖，免回表）");
+  if(created.state === "filter" && age.range && !covered) extras.push("Using index condition（ICP）");
+
+  /* SQL 预览 */
+  var wheres = [];
+  if(c1 === "eq") wheres.push("city = '北京'");
+  if(c1 === "pre") wheres.push("city LIKE '北%'");
+  if(c1 === "suf") wheres.push("city LIKE '%京'");
+  if(c2 === "eq") wheres.push("age = 25");
+  if(c2 === "gt") wheres.push("age > 30");
+  if(c3 === "lt") wheres.push("created_at < '2025-01-01'");
+  if(user) wheres.push("username = 'user_01'");
+  document.getElementById("sqlPreview").innerHTML =
+    "SELECT " + (user ? "*" : "id") + " FROM t_user" + (wheres.length ? " <b>WHERE</b> " + wheres.join(" AND ") : "");
+
+  /* 渲染列卡片 */
+  function paintCol(id, col, name){
+    var el = document.getElementById(id);
+    el.className = "idxcol " + (col.state === "seek" ? "seek" : col.state === "filter" ? "filter" : "dead");
+    el.querySelector("p").textContent = col.text + (col.state === "seek" ? "（+" + col.bytes + " 字节）" : "");
+  }
+  paintCol("colCity", city); paintCol("colAge", age); paintCol("colCreated", created);
+  var uEl = document.getElementById("colUser");
+  uEl.className = "idxcol dead";
+  uEl.querySelector("p").textContent = ustate.text;
+
+  /* 计划卡片 */
+  var planHtml = "<span class='k'>type</span> = <span class='" + (anySeek ? "good" : "bad") + "'>" + type + "</span>　" +
+    "<span class='k'>key</span> = " + (anySeek || (c1==="none"&&c2!=="none") ? "idx_city_age_created" : "<span class='bad'>NULL（用不上）</span>") + "　" +
+    "<span class='k'>key_len</span> = <span class='" + (keyLen ? "good" : "bad") + "'>" + (keyLen || "—") + "</span><br>" +
+    "<span class='k'>Extra</span> = " + (extras.length ? extras.map(function(e){return "<span class='" + (e.indexOf("skip")>=0||e.indexOf("全表")>=0 ? "warn" : "good") + "'>" + e + "</span>";}).join("；") : "—");
+  document.getElementById("planOut").innerHTML = planHtml;
+
+  /* 实测对照 */
+  var key = c1 + "|" + c2 + "|" + c3;
+  var fact = FACTS[key];
+  if(!fact){
+    var reason = [];
+    if(c1 === "suf") reason.push("前导通配符让索引失去定位能力");
+    if(c1 === "none" && c2 === "none" && c3 !== "none") reason.push("从第 3 列开始查，前面全断");
+    fact = reason.length
+      ? "这个组合没有对应实测，但可以推断：" + reason.join("；") + "。"
+      : "这个组合没有对应实测（模型预测如上），以真实 EXPLAIN 为准。";
+  }
+  document.getElementById("factOut").innerHTML = "对照《示例代码.sql》：" + fact;
+}
+
+document.querySelectorAll("input[name='c1'],input[name='c2'],input[name='c3'],#cUser").forEach(function(el){
+  el.addEventListener("change", evalPrefix);
+});
+
+/* ---------- 启动 ---------- */
+renderBtree();
+paint();
+evalPrefix();
+</script>
+</body>
+</html>

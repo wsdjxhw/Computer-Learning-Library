@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL进阶 · 互动演示</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#ffffff; --ink:#1f2933; --muted:#6b7280;
+    --line:#e5e7eb; --accent:#2563eb; --green:#dcfce7; --greenInk:#166534;
+    --amber:#fef3c7; --amberInk:#92400e; --red:#fee2e2; --redInk:#991b1b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 60px}
+  header{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+  header h1{margin:0 0 6px;font-size:20px}
+  .howto{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 12px;font-size:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:8px 18px;border:1px solid var(--line);background:var(--card);border-radius:8px 8px 0 0;cursor:pointer;font-size:15px}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:0 12px 12px 12px;padding:18px}
+  .panel.active{display:block}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:14px;padding:12px;background:#fafafa;border-radius:8px}
+  .ctrl{display:flex;align-items:center;gap:8px}
+  .ctrl label{font-size:14px;color:var(--muted)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:6px 14px;cursor:pointer;font-size:14px}
+  .seg button.on{background:var(--accent);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:14px}
+  @media (max-width:860px){.grid{grid-template-columns:1fr}}
+  .tblcard h3{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600}
+  table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;white-space:nowrap}
+  th{background:#f3f4f6;font-weight:600}
+  tr.hit{background:var(--green)}
+  tr.keep{background:var(--amber)}
+  tr.drop{background:var(--red);opacity:.75}
+  tr.res{background:#fff}
+  tr.res .nullcell{color:#b45309;font-style:italic}
+  .badge{display:inline-block;margin-left:8px;padding:1px 10px;border-radius:99px;background:#e0e7ff;color:#3730a3;font-size:12px}
+  .verdict{margin-top:14px;padding:12px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:14px}
+  .verdict b{color:var(--greenInk)}
+  .legend{margin-top:10px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-block;margin-right:14px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+  .inputs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .scorebox{display:flex;align-items:center;gap:8px;background:#fafafa;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+  .scorebox input{width:70px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:14px}
+  .note{font-size:13px;color:var(--muted);margin-top:12px}
+  code{background:#f3f4f6;border-radius:4px;padding:1px 6px;font-size:13px}
+  .deptTag{font-size:11px;color:#64748b;margin-left:6px}
+  select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>SQL进阶 · 互动演示</h1>
+    <div class="howto">怎么玩：① 在「JOIN 实验台」切换连接类型、切换条件（sal &gt; 2000）写在 ON 还是 WHERE，盯住结果表行数与源表高亮；② 在「排名三兄弟」里随便改分数，看三个名次列在并列处如何分岔。数据与《知识详解》《示例代码.sql》同一套。</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="join">① JOIN 实验台</button>
+    <button class="tab" data-tab="rank">② 排名三兄弟</button>
+  </div>
+
+  <!-- ============ 面板一：JOIN 实验台 ============ -->
+  <section class="panel active" id="panel-join">
+    <div class="controls">
+      <div class="ctrl">
+        <label>连接类型</label>
+        <div class="seg" id="segType">
+          <button data-v="INNER" class="on">INNER JOIN</button>
+          <button data-v="LEFT">LEFT JOIN</button>
+          <button data-v="RIGHT">RIGHT JOIN</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>条件 e.sal &gt; 2000 写在哪</label>
+        <select id="condPos">
+          <option value="none">不写这个条件</option>
+          <option value="on">ON 里（参与配对）</option>
+          <option value="where">WHERE 里（连接后过滤）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="tblcard">
+        <h3>左表 dept（部门）</h3>
+        <table id="tDept"></table>
+      </div>
+      <div class="tblcard">
+        <h3>右表 emp（员工）</h3>
+        <table id="tEmp"></table>
+      </div>
+      <div class="tblcard">
+        <h3>连接结果 <span class="badge" id="rowBadge">0 行</span></h3>
+        <table id="tRes"></table>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--green)"></i>参与配对成功</span>
+          <span><i class="dot" style="background:var(--amber)"></i>保留但配不上（补 NULL）</span>
+          <span><i class="dot" style="background:var(--red)"></i>被过滤掉</span>
+        </div>
+      </div>
+    </div>
+    <div class="verdict" id="joinVerdict"></div>
+    <div class="note">对应示例：2.1（条件在 ON，7 行）与 2.2（条件在 WHERE，6 行）——同一份 dept LEFT JOIN emp 数据。</div>
+  </section>
+
+  <!-- ============ 面板二：排名三兄弟 ============ -->
+  <section class="panel" id="panel-rank">
+    <div class="controls">
+      <div class="ctrl">
+        <label>
+          <input type="checkbox" id="partition"> 按 PARTITION BY 部门 分区（每个部门各自从 1 开始）
+        </label>
+      </div>
+      <div class="ctrl"><label>排序规则固定：<code>ORDER BY 分数 DESC</code>，并列时 ROW_NUMBER 按列表顺序分先后</label></div>
+    </div>
+    <div class="inputs" id="scoreInputs"></div>
+    <div class="tblcard">
+      <h3>排名结果（改一个分数，三列立刻重算）</h3>
+      <table id="tRank"></table>
+    </div>
+    <div class="verdict" id="rankVerdict"></div>
+    <div class="note">对应示例 5.1：SCOTT/FORD 同为 3000、WARD/MARTIN 同为 1250 —— 真实输出里 row_number 给 2、3 与 10、11；rank 给 2、2 与 10、10；dense_rank 给 2、2 与 9、9。</div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ---------- 公共数据（与 示例代码.sql 同源，取演示所需的子集） ---------- */
+var DEPT = [
+  {deptno:10, dname:"ACCOUNTING"},
+  {deptno:20, dname:"RESEARCH"},
+  {deptno:30, dname:"SALES"},
+  {deptno:40, dname:"OPERATIONS"}   // 40 号部门故意没有员工
+];
+var EMP = [
+  {ename:"CLARK",  sal:2450, deptno:10},
+  {ename:"KING",   sal:5000, deptno:10},
+  {ename:"MILLER", sal:1300, deptno:10},
+  {ename:"JONES",  sal:2975, deptno:20},
+  {ename:"SCOTT",  sal:3000, deptno:20},
+  {ename:"FORD",   sal:3000, deptno:20},
+  {ename:"BLAKE",  sal:2850, deptno:30},
+  {ename:"ALLEN",  sal:1600, deptno:30}
+];
+
+/* ---------- Tab 切换 ---------- */
+document.querySelectorAll(".tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".tab").forEach(function(b){b.classList.remove("active");});
+    document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ================= 面板一：JOIN 实验台 ================= */
+var joinType = "INNER", condPos = "none";
+
+function esc(s){ return String(s); }
+function cond(e){ return condPos === "none" ? true : e.sal > 2000; } // ON 与 WHERE 用同一个条件
+
+function renderJoin(){
+  var deptHit = {}, empHit = {}, empDrop = {}, deptKeep = {};
+  var rows = [];
+  var W = condPos === "where";
+
+  DEPT.forEach(function(d){
+    var matched = EMP.filter(function(e){
+      return e.deptno === d.deptno && (W ? true : cond(e));   // 条件在 ON：参与配对；在 WHERE：不影响配对
+    });
+    if(matched.length === 0){
+      if(joinType === "LEFT" && !W){
+        // 配不上：左连接保留左表行（右侧补 NULL）。
+        // 注意条件若在 WHERE，NULL 行也会被 "NULL>2000=UNKNOWN" 过滤掉，
+        // 所以这里只在无条件或条件在 ON 时保留。
+        rows.push({d:d, e:null}); deptKeep[d.deptno] = true;
+      }
+    }else{
+      matched.forEach(function(e){
+        var keep = true;
+        if(W && !cond(e)){ keep = false; }                      // WHERE：连接后过滤
+        if(keep){
+          rows.push({d:d, e:e});
+          deptHit[d.deptno] = true; empHit[e.ename] = true;
+        }else{
+          empDrop[e.ename] = true;
+          if(joinType === "LEFT" || joinType === "INNER"){ /* 该员工行被过滤，不产生结果行 */ }
+        }
+      });
+    }
+  });
+
+  if(joinType === "RIGHT"){
+    // RIGHT JOIN：右表（emp）全保留。配对规则与上面一致：
+    // 条件在 ON 时参与配对（配不上 → 左侧补 NULL），在 WHERE 时不影响配对、只过滤结果。
+    rows = [];
+    EMP.forEach(function(e){
+      var d = null;
+      if(W || cond(e)){
+        var m = DEPT.filter(function(x){ return x.deptno === e.deptno; });
+        d = m[0] || null;
+      }
+      var keep = true;
+      if(W && !cond(e)) keep = false;
+      if(keep){
+        rows.push({d:d, e:e});
+        if(d) deptHit[d.deptno] = true;
+        empHit[e.ename] = true;
+      }else{ empDrop[e.ename] = true; }
+    });
+    // 左表里没被任何结果行引用的部门高亮为“配不上但不保留”（RIGHT JOIN 语义下左表行可丢）
+    DEPT.forEach(function(d){ if(!deptHit[d.deptno]) deptKeep[d.deptno] = false; });
+  }
+
+  /* 渲染源表 */
+  var td = "<tr><th>deptno</th><th>dname</th></tr>";
+  DEPT.forEach(function(d){
+    var cls = deptHit[d.deptno] ? "hit" : (joinType === "LEFT" && deptKeep[d.deptno] ? "keep" : "drop");
+    td += "<tr class='" + cls + "'><td>" + d.deptno + "</td><td>" + esc(d.dname) + "</td></tr>";
+  });
+  document.getElementById("tDept").innerHTML = td;
+
+  var te = "<tr><th>ename</th><th>sal</th><th>deptno</th></tr>";
+  EMP.forEach(function(e){
+    var cls = empHit[e.ename] ? "hit" : (empDrop[e.ename] ? "drop" : "");
+    te += "<tr class='" + cls + "'><td>" + esc(e.ename) + "</td><td>" + e.sal + "</td><td>" + e.deptno + "</td></tr>";
+  });
+  document.getElementById("tEmp").innerHTML = te;
+
+  /* 渲染结果表 */
+  var tr = "<tr><th>dname</th><th>ename</th><th>sal</th></tr>";
+  rows.forEach(function(r){
+    var ename = r.e ? esc(r.e.ename) : "<span class='nullcell'>NULL</span>";
+    var sal   = r.e ? r.e.sal       : "<span class='nullcell'>NULL</span>";
+    var cls   = r.e ? "res" : "keep";
+    tr += "<tr class='" + cls + "'><td>" + esc(r.d ? r.d.dname : "NULL") + "</td><td>" + ename + "</td><td>" + sal + "</td></tr>";
+  });
+  document.getElementById("tRes").innerHTML = tr;
+  document.getElementById("rowBadge").textContent = rows.length + " 行";
+
+  /* 结论文案 */
+  var v = "";
+  if(condPos === "none"){
+    if(joinType === "INNER") v = "<b>INNER JOIN</b>：只保留两边都匹配的行 → " + rows.length + " 行。部门 40 没有员工，两边的它都消失了（对照示例 1.1）。";
+    if(joinType === "LEFT")  v = "<b>LEFT JOIN</b>：左表 dept 全保留 → 8 个匹配行 + 部门 40 的 <b>NULL 行</b> = " + rows.length + " 行（对照示例 1.2）。";
+    if(joinType === "RIGHT") v = "<b>RIGHT JOIN</b>：右表 emp 全保留。这套数据里每个员工都有部门，所以没有 NULL 行；若右表有配不上的行，则轮到左侧补 NULL——与 LEFT JOIN 完全对称（对照示例 1.3）。";
+  }else if(condPos === "on"){
+    if(joinType === "INNER") v = "条件写在 <b>ON</b>：只有 sal&gt;2000 的员工参与配对，配不上的双方都丢 → " + rows.length + " 行（INNER 下 ON 与 WHERE 效果相同）。";
+    if(joinType === "LEFT")  v = "条件写在 <b>ON</b>：它只决定“怎么配对”，不匹配的员工行不出现，但左表部门照样保留 → 高薪 " + rows.length + " 行 里含部门 40 的 NULL 行（对照示例 2.1，全量数据为 7 行）。";
+    if(joinType === "RIGHT") v = "条件写在 <b>ON</b>：sal&gt;2000 参与配对，右表 emp 全保留 → 不满足的员工行以“部门=NULL”的形态回来（此时左侧才是补 NULL 的一方）。";
+  }else{
+    if(joinType === "LEFT")  v = "条件写在 <b>WHERE</b>：连接先照常发生，再对结果过滤。<b>NULL &gt; 2000 的结果是 UNKNOWN（不是 TRUE）</b>，部门 40 的 NULL 行被扔掉 → 左连接<b>退化成内连接</b>，剩 " + rows.length + " 行（对照示例 2.2）。";
+    if(joinType === "INNER") v = "条件写在 <b>WHERE</b>：连接后过滤 → " + rows.length + " 行，与写在 ON 结果相同（内连接下两者等价）。";
+    if(joinType === "RIGHT") v = "条件写在 <b>WHERE</b>：连接后过滤，右表中 sal≤2000 的行被删 → " + rows.length + " 行，右连接同样退化。";
+  }
+  document.getElementById("joinVerdict").innerHTML = v;
+}
+
+document.querySelectorAll("#segType button").forEach(function(b){
+  b.addEventListener("click", function(){
+    document.querySelectorAll("#segType button").forEach(function(x){x.classList.remove("on");});
+    b.classList.add("on");
+    joinType = b.dataset.v;
+    renderJoin();
+  });
+});
+document.getElementById("condPos").addEventListener("change", function(e){
+  condPos = e.target.value;
+  renderJoin();
+});
+
+/* ================= 面板二：排名三兄弟 ================= */
+var PLAYERS = [
+  {name:"KING",   dept:"10", sal:5000},
+  {name:"SCOTT",  dept:"20", sal:3000},
+  {name:"FORD",   dept:"20", sal:3000},
+  {name:"JONES",  dept:"20", sal:2975},
+  {name:"BLAKE",  dept:"30", sal:2850},
+  {name:"WARD",   dept:"30", sal:1250},
+  {name:"MARTIN", dept:"30", sal:1250},
+  {name:"SMITH",  dept:"20", sal:800}
+];
+
+function renderScoreInputs(){
+  var host = document.getElementById("scoreInputs");
+  host.innerHTML = "";
+  PLAYERS.forEach(function(p, i){
+    var box = document.createElement("div");
+    box.className = "scorebox";
+    box.innerHTML = "<span>" + p.name + "<span class='deptTag'>部门" + p.dept + "</span></span>" +
+                    "<input type='number' value='" + p.sal + "' min='0' max='99999' data-i='" + i + "'>";
+    host.appendChild(box);
+  });
+  host.querySelectorAll("input").forEach(function(inp){
+    inp.addEventListener("input", renderRank);
+  });
+}
+
+function renderRank(){
+  var part = document.getElementById("partition").checked;
+  var list = PLAYERS.map(function(p, i){
+    var box = document.querySelector("#scoreInputs input[data-i='" + i + "']");
+    var v = parseInt(box.value, 10);
+    return {name:p.name, dept:p.dept, sal:isNaN(v) ? 0 : v, idx:i};
+  });
+  // 全局（或分区内）按分数降序；并列时按输入顺序分先后（等价于第二排序键）
+  var groups = {};
+  if(part){
+    list.forEach(function(r){ (groups[r.dept] = groups[r.dept] || []).push(r); });
+  }else{
+    groups["ALL"] = list;
+  }
+  Object.keys(groups).forEach(function(g){
+    var arr = groups[g].slice().sort(function(a, b){ return b.sal - a.sal || a.idx - b.idx; });
+    var prevSal = null, prevRank = 0, prevDense = 0;
+    arr.forEach(function(r, i){
+      var rn = i + 1;
+      if(prevSal !== null && r.sal === prevSal){
+        r.rank = prevRank;               // 并列同名次，占用号
+        r.dense = prevDense;             // 并列同名次，不占号
+      }else{
+        r.rank = i + 1;
+        r.dense = prevDense + 1;
+      }
+      prevSal = r.sal; prevRank = r.rank; prevDense = r.dense;
+      r.row_number = rn;
+    });
+  });
+  // 展示顺序：分区时按部门、组内按 row_number；全局时直接按 row_number
+  var display = [];
+  if(part){
+    ["10","20","30"].forEach(function(d){
+      display = display.concat(list.filter(function(r){ return r.dept === d; })
+        .sort(function(a, b){ return a.row_number - b.row_number; }));
+    });
+  }else{
+    display = list.slice().sort(function(a, b){ return a.row_number - b.row_number; });
+  }
+
+  var t = "<tr><th>部门</th><th>ename</th><th>sal</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>";
+  var ties = 0;
+  display.forEach(function(r){
+    var tieMark = (r.rank !== r.row_number) ? " ← 并列" : "";
+    if(tieMark) ties++;
+    t += "<tr><td>" + (part ? r.dept : "—") + "</td><td>" + r.name + "</td><td>" + r.sal +
+         "</td><td>" + r.row_number + "</td><td>" + r.rank + tieMark + "</td><td>" + r.dense + tieMark + "</td></tr>";
+  });
+  document.getElementById("tRank").innerHTML = t;
+
+  document.getElementById("rankVerdict").innerHTML =
+    ties === 0
+      ? "当前<b>没有并列</b>，三列完全一样——随便把两个分数改成相同值试试。"
+      : "出现并列的地方：<b>row_number</b> 硬分先后（不等）；<b>rank</b> 并列同名次且<b>占用</b>号（下一个名次跳过）；<b>dense_rank</b> 并列同名次<b>不占</b>号（下一个名次顺延）。" +
+        (part ? "勾选分区后每个部门各自从 1 开始数——这就是 <code>PARTITION BY</code>。" : "");
+}
+
+document.getElementById("partition").addEventListener("change", renderRank);
+
+/* ---------- 启动 ---------- */
+renderJoin();
+renderScoreInputs();
+renderRank();
+</script>
+</body>
+</html>
