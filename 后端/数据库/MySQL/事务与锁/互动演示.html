@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>事务与锁 · 互动演示</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#fff; --ink:#1f2933; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2563eb; --sa:#2563eb; --sb:#f59e0b;
+    --green:#dcfce7; --greenInk:#166534; --amber:#fef3c7; --amberInk:#92400e;
+    --gray:#f3f4f6; --grayInk:#6b7280; --red:#fee2e2; --redInk:#991b1b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
+  header{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+  header h1{margin:0 0 6px;font-size:20px}
+  .howto{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 12px;font-size:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:8px 18px;border:1px solid var(--line);background:var(--card);border-radius:8px 8px 0 0;cursor:pointer;font-size:15px}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:0 12px 12px 12px;padding:18px}
+  .panel.active{display:block}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0;padding:12px;background:#fafafa;border-radius:8px}
+  .controls select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:14px;max-width:340px}
+  button{padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-size:14px}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  .iso{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:120px}
+  .stat b{display:block;font-size:20px;color:var(--accent)}
+  .stat span{font-size:12px;color:var(--muted)}
+  .stat.snap b{color:#7c3aed}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .chip{font-size:12px;padding:2px 8px;border-radius:6px;background:#f1f5f9;border:1px solid var(--line);color:#334155}
+  .chip.lock{background:#fee2e2;border-color:#fecaca;color:var(--redInk);font-weight:700}
+  .chip.gap{background:var(--amber);border-color:#fcd34d;color:var(--amberInk);font-weight:700}
+  .errbadge{margin:8px 0;padding:8px 14px;border-radius:8px;background:var(--red);border:1px solid #fecaca;color:var(--redInk);font-family:Consolas,monospace;font-weight:700;display:none}
+
+  /* 时间线 */
+  .tl{margin:14px 0 6px}
+  .lane{position:relative;height:44px;margin:6px 0}
+  .lane .lab{position:absolute;left:0;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;padding:3px 10px;border-radius:8px}
+  .lane.a .lab{background:#dbeafe;color:#1e40af}
+  .lane.b .lab{background:#fef3c7;color:#92400e}
+  .lane .track{position:absolute;left:110px;right:0;top:50%;height:3px;background:#e2e8f0;transform:translateY(-50%);border-radius:2px}
+  .dot{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1;z-index:2}
+  .lane.a .dot{background:var(--sa)} .lane.b .dot{background:var(--sb)}
+  .dot.cur{box-shadow:0 0 0 4px rgba(37,99,235,.25);width:18px;height:18px}
+  .lane.b .dot.cur{box-shadow:0 0 0 4px rgba(245,158,11,.3)}
+  .dot.past{opacity:.45}
+  .cursor{position:absolute;top:0;bottom:0;width:2px;background:#94a3b8;z-index:1}
+  .ruler{position:relative;height:18px;margin-left:110px;font-size:11px;color:var(--muted)}
+  .ruler span{position:absolute;transform:translateX(-50%)}
+
+  .log{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 14px;font-family:Consolas,monospace;font-size:13px;min-height:120px;max-height:240px;overflow:auto}
+  .log .m{margin:3px 0}
+  .log .m .who{display:inline-block;min-width:14px;font-weight:700}
+  .log .m.a .who{color:#60a5fa} .log .m.b .who{color:#fbbf24}
+  .log .m.now{color:#fff;background:rgba(255,255,255,.08);border-radius:4px;padding:2px 6px}
+  .log .m.err{color:#f87171}
+  .log .m.ok{color:#4ade80}
+  .log .m.note{color:#94a3b8;font-style:italic}
+  .note{font-size:13px;color:var(--muted);margin-top:10px}
+
+  /* 锁范围判定器 */
+  .condgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:14px}
+  .condcard{background:#fafafa;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .condcard h4{margin:0 0 8px;font-size:13px;color:var(--muted)}
+  .condcard label{display:block;font-size:14px;margin:5px 0;cursor:pointer}
+  .sqlpreview{margin:6px 0 12px;padding:10px 12px;background:#f8fafc;border:1px dashed var(--line);border-radius:8px;font-family:Consolas,monospace;font-size:13px}
+
+  .numline{display:flex;align-items:stretch;gap:0;margin:18px 0 6px;height:64px}
+  .seg{position:relative;border-top:3px dashed #cbd5e1;border-bottom:3px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8}
+  .seg.gap{background:repeating-linear-gradient(45deg,#fef3c7,#fef3c7 8px,#fde68a 8px,#fde68a 16px);border-style:solid;border-color:#f59e0b;color:var(--amberInk);font-weight:700}
+  .keybox{width:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid var(--line);border-radius:10px;background:#fff;font-weight:700}
+  .keybox small{font-weight:400;color:var(--muted);font-size:10px}
+  .keybox.rec{border-color:#ef4444;background:#fee2e2;color:var(--redInk)}
+  .marker{position:absolute;top:-30px;transform:translateX(-50%);text-align:center;font-size:12px;font-weight:700;color:#4338ca;white-space:nowrap}
+  .marker:after{content:"";display:block;width:2px;height:26px;background:#6366f1;margin:2px auto 0}
+  .verdict{margin-top:26px;padding:12px 16px;border-radius:10px;font-size:15px}
+  .verdict.block{background:var(--red);border:1px solid #fecaca;color:var(--redInk)}
+  .verdict.free{background:var(--green);border:1px solid #bbf7d0;color:var(--greenInk)}
+  .fact{margin-top:12px;padding:10px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:13px;color:var(--greenInk)}
+  .locklist{font-family:Consolas,monospace;font-size:13px;margin-top:8px;color:#334155}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>事务与锁 · 互动演示</h1>
+    <div class="howto">怎么玩：① 在「双会话时间线播放器」里选一个演示（对应示例代码的演示 1~9），逐步播放两个会话的真实并发过程，看隔离级别、MVCC、锁各自主宰了什么；② 在「锁范围判定器」里选隔离级别与查询方式，看 RR/RC 到底锁了哪些记录和间隙，再选一个 INSERT 位置验证会不会被拦。</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="tl">① 双会话时间线播放器</button>
+    <button class="tab" data-tab="lock">② 锁范围判定器</button>
+  </div>
+
+  <!-- ============ 面板一：时间线播放器 ============ -->
+  <section class="panel active" id="panel-tl">
+    <div class="controls">
+      <span style="font-size:14px;color:var(--muted)">演示</span>
+      <select id="demoSel"></select>
+      <span class="iso" id="isoBadge"></span>
+      <button class="primary" id="btnNext">下一步 →</button>
+      <button id="btnPrev">← 上一步</button>
+      <button id="btnAuto">▶ 自动播放</button>
+      <button id="btnReplay">↺ 重置</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b id="stAlice">1000</b><span>Alice 余额（最新值）</span></div>
+      <div class="stat"><b id="stBob">1000</b><span>Bob 余额（最新值）</span></div>
+      <div class="stat snap"><b id="stSeen">—</b><span>B 的快照读到的值</span></div>
+      <div class="stat"><b id="stCnt">—</b><span>B 读到的行数</span></div>
+      <div class="stat"><b id="stTgap">1 / 5 / 10</b><span>t_gap 表内容</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat" style="min-width:180px"><span>会话A 持有的行锁</span><div class="chips" id="lockA"><span class="chip">无</span></div></div>
+      <div class="stat" style="min-width:180px"><span>会话B 持有的行锁</span><div class="chips" id="lockB"><span class="chip">无</span></div></div>
+      <div class="stat" style="min-width:200px"><span>会话A 的间隙锁（仅 RR）</span><div class="chips" id="gapA"><span class="chip">无</span></div></div>
+    </div>
+    <div class="errbadge" id="errBadge"></div>
+
+    <div class="tl" id="timeline"></div>
+    <div class="log" id="tllog"></div>
+    <div class="note" id="tlNote"></div>
+  </section>
+
+  <!-- ============ 面板二：锁范围判定器 ============ -->
+  <section class="panel" id="panel-lock">
+    <div class="condgrid">
+      <div class="condcard">
+        <h4>① 隔离级别（会话A 用）</h4>
+        <label><input type="radio" name="iso" value="rr" checked> REPEATABLE-READ（默认）</label>
+        <label><input type="radio" name="iso" value="rc"> READ-COMMITTED</label>
+      </div>
+      <div class="condcard">
+        <h4>② 会话A 的当前读（t_gap 现有主键 1、5、10）</h4>
+        <label><input type="radio" name="qry" value="eqHit"> 等值命中：WHERE id=5 FOR UPDATE</label>
+        <label><input type="radio" name="qry" value="eqMiss"> 等值未命中：WHERE id=7 FOR UPDATE</label>
+        <label><input type="radio" name="qry" value="range" checked> 范围：WHERE id BETWEEN 2 AND 9 FOR UPDATE</label>
+        <label><input type="radio" name="qry" value="noIndex"> 无索引列：UPDATE ... WHERE v &gt; 3（v 没索引）</label>
+      </div>
+      <div class="condcard">
+        <h4>③ 会话B 随后要做的操作</h4>
+        <label><input type="radio" name="ins" value="ins3"> INSERT id=3（落在间隙 (1,5)）</label>
+        <label><input type="radio" name="ins" value="ins7" checked> INSERT id=7（落在间隙 (5,10)）</label>
+        <label><input type="radio" name="ins" value="ins11"> INSERT id=11（落在尾部 (10,∞)）</label>
+        <label><input type="radio" name="ins" value="upd5"> UPDATE id=5（改已存在的行）</label>
+      </div>
+    </div>
+
+    <div class="sqlpreview" id="lockSql"></div>
+    <div class="numline" id="numline"></div>
+    <div class="locklist" id="lockList"></div>
+    <div class="verdict" id="verdict"></div>
+    <div class="fact" id="lockFact"></div>
+    <div class="note">图例：<b style="color:var(--redInk)">红框键 = 记录锁</b>（锁这条索引记录本身），<b style="color:var(--amberInk)">黄色斜纹段 = 间隙锁</b>（锁"两个已存在行之间的位置"，只拦 INSERT）。范围场景里"记录+它前面的间隙"合称 Next-Key Lock。间隙锁只在 RR 下存在。</div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ================= Tab 切换 ================= */
+document.querySelectorAll(".tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".tab").forEach(function(b){b.classList.remove("active");});
+    document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ================= 面板一：双会话时间线播放器 =================
+   每个演示对应 示例代码/ 里的一对脚本；事件时间轴按脚本里的 SLEEP 对齐，
+   结果均为真实运行输出（见《知识详解.md》第八节）。 */
+var DEMOS = [
+  {key:"d1", name:"演示1 · 脏读（RU）", iso:"READ-UNCOMMITTED", total:9,
+   note:"对应文件 演示1_脏读_会话A/B.sql。RU 直接读最新数据（不加判断），连别人没提交的都看得见。",
+   init:{alice:1000,bob:1000},
+   events:[
+     {t:0.3, who:"a", kind:"sql",  text:"BEGIN；UPDATE account SET balance=balance+500 WHERE id=1（<b>不提交</b>）", fx:{lockA:[1], alice:1500}},
+     {t:1.5, who:"b", kind:"read", text:"SELECT balance WHERE id=1 → <b>1500</b>（A 还没提交，B 却读到了！）", fx:{seen:1500}},
+     {t:7.5, who:"a", kind:"sql",  text:"ROLLBACK —— 那 +500 从来没发生过", fx:{alice:1000, lockA:[]}},
+     {t:8.6, who:"b", kind:"read", text:"再读 → <b>1000</b>。1500 凭空出现又凭空消失", fx:{seen:1000}},
+     {t:8.8, who:"b", kind:"note", text:"脏读：拿着 1500 去转账/做报表，A 一回滚全错。RU 几乎不可用"}
+   ]},
+  {key:"d2", name:"演示2 · 不可重复读 + 幻读（RC）", iso:"READ-COMMITTED", total:8,
+   note:"对应文件 演示2_不可重复读_会话A/B.sql。RC 只读已提交（防住脏读），但每条 SELECT 都建新快照。",
+   init:{alice:1000,bob:1000,cnt:2},
+   events:[
+     {t:0.5, who:"b", kind:"sql",  text:"BEGIN；第一次读：balance=<b>1000</b>，COUNT=<b>2</b>", fx:{seen:1000, cntSeen:2}},
+     {t:2.2, who:"a", kind:"sql",  text:"UPDATE Alice +500；INSERT Carol；COMMIT", fx:{alice:1500, cnt:3}},
+     {t:6.8, who:"b", kind:"read", text:"同一个事务里第二次读：balance=<b>1500</b>，COUNT=<b>3</b>", fx:{seen:1500, cntSeen:3}},
+     {t:7.2, who:"b", kind:"ok",   text:"COMMIT"},
+     {t:7.4, who:"b", kind:"note", text:"值变了=不可重复读；行数变了=幻读。RC 都防不住"}
+   ]},
+  {key:"d3", name:"演示3 · 可重复读（RR，默认）", iso:"REPEATABLE-READ", total:8.5,
+   note:"对应文件 演示3_可重复读_会话A/B.sql。时间线与演示2 完全相同，唯一区别是 B 的隔离级别。",
+   init:{alice:1000,bob:1000,cnt:2},
+   events:[
+     {t:0.5, who:"b", kind:"sql",  text:"BEGIN；第一次读：1000 / 2（<b>ReadView 在此刻建立</b>）", fx:{seen:1000, cntSeen:2}},
+     {t:2.2, who:"a", kind:"sql",  text:"同样的提交：UPDATE Alice +500；INSERT Carol；COMMIT", fx:{alice:1500, cnt:3}},
+     {t:6.8, who:"b", kind:"read", text:"第二次读 → 仍是 <b>1000 / 2</b>（快照没换，A 的提交对 B 不可见）", fx:{seen:1000, cntSeen:2}},
+     {t:7.2, who:"b", kind:"ok",   text:"COMMIT（快照随之失效）"},
+     {t:7.6, who:"b", kind:"read", text:"提交后再读 COUNT → <b>3</b>（新事务 = 新快照）", fx:{seen:1500, cntSeen:3}},
+     {t:7.9, who:"b", kind:"note", text:"RR：快照读可重复，幻读在快照读路径上也防住了"}
+   ]},
+  {key:"d4", name:"演示4 · 快照读 vs 当前读（MVCC 关键实验）", iso:"REPEATABLE-READ", total:8.5,
+   note:"对应文件 演示4_MVCC快照与当前读_会话A/B.sql。同一行、同一事务、四次读、两种答案。",
+   init:{alice:1000,bob:1000},
+   events:[
+     {t:0.5, who:"b", kind:"sql",  text:"【B1】BEGIN；普通读 → <b>1000</b>（建立快照）", fx:{seen:1000}},
+     {t:2.5, who:"a", kind:"sql",  text:"【A1】UPDATE Alice +500（autocommit，立即提交）", fx:{alice:1500}},
+     {t:6.5, who:"b", kind:"read", text:"【B2】普通 SELECT → <b>1000</b>（快照读：读旧版本）", fx:{seen:1000}},
+     {t:6.6, who:"b", kind:"read", text:"【B3】SELECT ... FOR UPDATE → <b>1500</b>（当前读：最新版 + 行锁）", fx:{lockB:[1]}},
+     {t:6.7, who:"b", kind:"read", text:"【B4】再普通 SELECT → 仍 <b>1000</b>（<b>快照没被 B3 换掉</b>——高频误区）", fx:{seen:1000}},
+     {t:7.2, who:"b", kind:"ok",   text:"COMMIT（释放行锁）", fx:{lockB:[]}},
+     {t:7.6, who:"b", kind:"read", text:"【B5】提交后再普通读 → <b>1500</b>（新事务新快照）", fx:{seen:1500}}
+   ]},
+  {key:"d5", name:"演示5 · 行锁与锁等待（ERROR 1205）", iso:"REPEATABLE-READ", total:7.5,
+   note:"对应文件 演示5_行锁与锁等待_会话A/B.sql。B 的 innodb_lock_wait_timeout 已设为 3 秒。",
+   init:{alice:1000,bob:1000},
+   events:[
+     {t:0.3, who:"a", kind:"sql",  text:"BEGIN；UPDATE id=1 +100（拿到 id=1 的行锁）", fx:{lockA:[1], alice:1100}},
+     {t:1.9, who:"b", kind:"ok",   text:"UPDATE id=2 +100 → <b>秒过</b>（锁的不是同一行）", fx:{bob:1100}},
+     {t:2.6, who:"b", kind:"sql",  text:"UPDATE id=1 +100 → <b>阻塞</b>（排队等 A，最多等 3 秒）"},
+     {t:5.7, who:"b", kind:"err",  text:"<b>ERROR 1205</b> Lock wait timeout exceeded（A 第 6 秒才放锁，B 等不起）", fx:{err:"ERROR 1205 Lock wait timeout"}},
+     {t:6.0, who:"b", kind:"ok",   text:"ROLLBACK（撤销 id=2 的改动）", fx:{bob:1000}},
+     {t:6.4, who:"a", kind:"ok",   text:"COMMIT（释放 id=1）", fx:{lockA:[], err:null}}
+   ]},
+  {key:"d6", name:"演示6 · 死锁（ERROR 1213）", iso:"REPEATABLE-READ", total:5,
+   note:"对应文件 演示6_死锁_会话A/B.sql。A 正着加锁（1→2），B 反着加锁（2→1），环形成。",
+   init:{alice:1000,bob:1000},
+   events:[
+     {t:0.3, who:"a", kind:"sql",  text:"BEGIN；UPDATE id=1 +1 → 锁住 id=1", fx:{lockA:[1]}},
+     {t:1.3, who:"b", kind:"sql",  text:"BEGIN；UPDATE id=2 +1 → 锁住 id=2", fx:{lockB:[2]}},
+     {t:3.4, who:"a", kind:"sql",  text:"UPDATE id=2 → <b>阻塞</b>（等 B 手里的 id=2）"},
+     {t:4.4, who:"b", kind:"sql",  text:"UPDATE id=1 → <b>阻塞</b>（等 A 手里的 id=1）—— <b>环形成！</b>"},
+     {t:4.5, who:"b", kind:"err",  text:"InnoDB 死锁检测：回滚代价小的 B → <b>ERROR 1213</b> Deadlock found", fx:{err:"ERROR 1213 Deadlock found", lockB:[]}},
+     {t:4.6, who:"a", kind:"ok",   text:"B 的锁全放，A 立刻拿到 id=2；COMMIT → <b>【A3】存活方提交成功</b>", fx:{err:null}}
+   ]},
+  {key:"d7", name:"演示7 · 间隙锁拦住 INSERT（RR）", iso:"REPEATABLE-READ", total:7,
+   note:"对应文件 演示7_间隙锁RR_会话A/B.sql。t_gap 主键 1、5、10，B 的锁等待超时 3 秒。",
+   init:{alice:1000,bob:1000,tgap:"1 / 5 / 10"},
+   events:[
+     {t:0.3, who:"a", kind:"sql",  text:"BEGIN；SELECT ... WHERE id BETWEEN 2 AND 9 <b>FOR UPDATE</b> → 命中 1 行（id=5）", fx:{lockA:[5], gapsA:"(1,5) (5,10)"}},
+     {t:1.9, who:"b", kind:"sql",  text:"INSERT INTO t_gap VALUES (7,70) → <b>阻塞</b>（7 落在间隙 (5,10)——锁的是\"位置\"）"},
+     {t:5.0, who:"b", kind:"err",  text:"<b>ERROR 1205</b>（间隙被锁，插不进去。5 和 10 之间没有任何已存在的行！）", fx:{err:"ERROR 1205 Lock wait timeout"}},
+     {t:6.4, who:"a", kind:"ok",   text:"COMMIT（释放记录锁与间隙锁）", fx:{lockA:[], gapsA:"", err:null}}
+   ]},
+  {key:"d8", name:"演示8 · 同样的 INSERT，RC 放行", iso:"READ-COMMITTED", total:7,
+   note:"对应文件 演示8_间隙锁RC_会话A/B.sql。与演示7 唯一的区别：A 的隔离级别是 RC。",
+   init:{alice:1000,bob:1000,tgap:"1 / 5 / 10"},
+   events:[
+     {t:0.3, who:"a", kind:"sql",  text:"BEGIN；同样 SELECT ... BETWEEN 2 AND 9 FOR UPDATE（RC）→ <b>只锁记录 5</b>，不锁间隙", fx:{lockA:[5]}},
+     {t:1.9, who:"b", kind:"ok",   text:"INSERT INTO t_gap VALUES (7,70) → <b>秒过！</b>", fx:{tgap:"1 / 5 / 7 / 10"}},
+     {t:2.2, who:"b", kind:"read", text:"SELECT id FROM t_gap ORDER BY id → 1 / 5 / 7 / 10"},
+     {t:6.4, who:"a", kind:"ok",   text:"COMMIT", fx:{lockA:[]}},
+     {t:6.6, who:"b", kind:"note", text:"RC 没有间隙锁 → 并发更好，但当前读挡不住别的事务插入（幻读防线少一半）"}
+   ]},
+  {key:"d9", name:"演示9 · SAVEPOINT 存档点（单会话）", iso:"REPEATABLE-READ", total:4, single:true,
+   note:"对应文件 演示9_保存点与回滚.sql。单个连接即可，不需要会话B。",
+   init:{alice:1000,bob:1000},
+   events:[
+     {t:0.3, who:"a", kind:"sql",  text:"BEGIN；先花 300 → 余额 <b>700</b>", fx:{alice:700}},
+     {t:1.0, who:"a", kind:"sql",  text:"SAVEPOINT sp1（存档）"},
+     {t:1.6, who:"a", kind:"sql",  text:"再花 700 → 余额 <b>0</b>（花光了）", fx:{alice:0}},
+     {t:2.4, who:"a", kind:"ok",   text:"ROLLBACK TO sp1 → <b>700</b>（只撤存档之后的部分，事务继续）", fx:{alice:700}},
+     {t:3.2, who:"a", kind:"ok",   text:"ROLLBACK → <b>1000</b>（整个事务全部撤销）", fx:{alice:1000}}
+   ]}
+];
+
+var curDemo = null, stepIdx = -1, autoTimer = null;
+
+function applyState(demo, upto){
+  var st = {alice:demo.init.alice, bob:demo.init.bob, seen:null, cnt:null,
+            lockA:[], lockB:[], gapsA:"", err:null, tgap:demo.init.tgap || "1 / 5 / 10"};
+  if(demo.init.cnt !== undefined) st.cnt = demo.init.cnt;
+  for(var i=0;i<=upto && i<demo.events.length;i++){
+    var fx = demo.events[i].fx;
+    if(!fx) continue;
+    for(var k in fx){
+      if(k === "cnt") st.cnt = fx[k];
+      else if(k === "cntSeen") st.cntSeen = fx[k];
+      else st[k] = fx[k];
+    }
+  }
+  return st;
+}
+
+function renderChips(id, arr, cls){
+  var host = document.getElementById(id);
+  if(arr && arr.length){
+    host.innerHTML = arr.map(function(x){return "<span class='chip " + cls + "'>id=" + x + "</span>";}).join("");
+  }else{
+    host.innerHTML = "<span class='chip'>无</span>";
+  }
+}
+
+function paint(){
+  var demo = curDemo;
+  var st = applyState(demo, stepIdx);
+
+  document.getElementById("stAlice").textContent = st.alice;
+  document.getElementById("stBob").textContent = st.bob;
+  document.getElementById("stSeen").textContent = (st.seen === null || st.seen === undefined) ? "—" : st.alice === st.seen ? st.seen : st.seen + " ≠ 最新值";
+  document.getElementById("stCnt").textContent = (st.cntSeen === undefined || st.cntSeen === null) ? "—" : st.cntSeen + " / 真实 " + st.cnt;
+  document.getElementById("stTgap").textContent = st.tgap;
+  renderChips("lockA", st.lockA, "lock");
+  renderChips("lockB", st.lockB, "lock");
+  var gapHost = document.getElementById("gapA");
+  gapHost.innerHTML = st.gapsA ? st.gapsA.split(" ").map(function(g){return "<span class='chip gap'>" + g + "</span>";}).join("") : "<span class='chip'>无</span>";
+  var eb = document.getElementById("errBadge");
+  if(st.err){ eb.style.display = "block"; eb.textContent = st.err; } else { eb.style.display = "none"; }
+
+  /* 时间线 */
+  var cur = stepIdx >= 0 ? demo.events[stepIdx] : null;
+  var curT = cur ? cur.t : 0;
+  var html = "";
+  function lane(who, label){
+    var h = "<div class='lane " + who + "'><span class='lab'>" + label + "</span><div class='track'></div>";
+    h += "<div class='cursor' style='left:calc(110px + (100% - 110px) * " + (curT/demo.total) + ")'></div>";
+    demo.events.forEach(function(ev, i){
+      if((who === "a") === (ev.who === "a")){
+        var cls = "dot" + (i === stepIdx ? " cur" : (i < stepIdx ? " past" : ""));
+        h += "<div class='" + cls + "' data-i='" + i + "' title='" + ev.text.replace(/<[^>]+>/g,"") + "' style='left:calc(110px + (100% - 110px) * " + (ev.t/demo.total) + ")'></div>";
+      }
+    });
+    return h + "</div>";
+  }
+  html += demo.single ? lane("a", "单会话") : (lane("a", "会话A") + lane("b", "会话B"));
+  html += "<div class='ruler'><span style='left:0'>0s</span><span style='left:50%'>" + (demo.total/2) + "s</span><span style='left:100%'>" + demo.total + "s</span></div>";
+  document.getElementById("timeline").innerHTML = html;
+  document.querySelectorAll("#timeline .dot").forEach(function(d){
+    d.addEventListener("click", function(){ stopAuto(); stepIdx = parseInt(this.dataset.i,10); paint(); });
+  });
+
+  /* 日志 */
+  var log = "";
+  for(var L=0;L<demo.events.length;L++){
+    if(L > stepIdx) break;
+    var ev = demo.events[L];
+    var cls = "m " + (ev.who === "a" ? "a" : "b") + (L === stepIdx ? " now" : " " + ev.kind);
+    log += "<div class='" + cls + "'><span class='who'>" + (ev.who === "a" ? "A" : "B") + "</span> " + ev.text + "</div>";
+  }
+  document.getElementById("tllog").innerHTML = log || "<div class='m'>点「下一步」开始。</div>";
+
+  document.getElementById("btnPrev").disabled = stepIdx < 0;
+  document.getElementById("btnNext").disabled = stepIdx >= demo.events.length - 1;
+}
+
+function loadDemo(idx){
+  stopAuto();
+  curDemo = DEMOS[idx];
+  stepIdx = -1;
+  document.getElementById("isoBadge").textContent = curDemo.iso;
+  document.getElementById("tlNote").textContent = curDemo.note;
+  paint();
+}
+
+function stopAuto(){
+  if(autoTimer){ clearInterval(autoTimer); autoTimer = null; document.getElementById("btnAuto").textContent = "▶ 自动播放"; }
+}
+
+(function initDemoSel(){
+  var sel = document.getElementById("demoSel");
+  DEMOS.forEach(function(d, i){
+    var opt = document.createElement("option");
+    opt.value = i; opt.textContent = d.name;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener("change", function(){ loadDemo(parseInt(this.value,10)); });
+})();
+document.getElementById("btnNext").addEventListener("click", function(){ stopAuto(); if(stepIdx < curDemo.events.length-1){ stepIdx++; paint(); } });
+document.getElementById("btnPrev").addEventListener("click", function(){ stopAuto(); stepIdx = Math.max(-1, stepIdx-1); paint(); });
+document.getElementById("btnReplay").addEventListener("click", function(){ stopAuto(); stepIdx = -1; paint(); });
+document.getElementById("btnAuto").addEventListener("click", function(){
+  if(autoTimer){ stopAuto(); return; }
+  this.textContent = "⏸ 暂停";
+  autoTimer = setInterval(function(){
+    if(stepIdx >= curDemo.events.length-1){ stopAuto(); return; }
+    stepIdx++; paint();
+  }, 1100);
+});
+
+/* ================= 面板二：锁范围判定器 ================= */
+/* 规则（依据《知识详解.md》2.5，演示7/8 为实测）：
+   RC：只有记录锁；等值未命中 → 什么都不锁。
+   RR：等值命中唯一索引 → 退化为纯记录锁；等值未命中 → 锁该在的间隙；
+       范围 → 命中记录 + 覆盖到的间隙（Next-Key）；无索引 → 全部记录 + 全部间隙。 */
+function locksFor(iso, q){
+  var recs = [], gaps = [];
+  if(q === "eqHit"){ recs = [5]; }
+  else if(q === "eqMiss"){ if(iso === "rr") gaps = [[5,10]]; }
+  else if(q === "range"){
+    recs = [5];
+    if(iso === "rr") gaps = [[1,5],[5,10]];
+  }else if(q === "noIndex"){
+    recs = [1,5,10];
+    if(iso === "rr") gaps = [[1,5],[5,10],[10,99]];
+  }
+  return {recs:recs, gaps:gaps};
+}
+function gapHit(gaps, lo, hi){
+  return gaps.some(function(g){ return g[0] === lo && g[1] === hi; });
+}
+
+var LOCK_FACTS = {
+  "eqHit|rr": "唯一索引等值命中时，Next-Key Lock 退化为<b>纯记录锁</b>——唯一性已保证没有幻影行，不需要锁间隙。",
+  "eqHit|rc": "RC 只有记录锁：锁 id=5 这一行，间隙全开。",
+  "eqMiss|rr": "等值未命中：锁的是 id=7 <b>本来该在的间隙 (5,10)</b>——RR 用它防“当前读幻读”。",
+  "eqMiss|rc": "等值未命中且无间隙锁：什么都没锁上，B 想干什么都行。",
+  "range|rr": "演示7 实测：B INSERT id=7 → 阻塞 3 秒后 <b>ERROR 1205</b>。命中的记录 5 + 两侧间隙，合称 Next-Key Lock。",
+  "range|rc": "演示8 实测：B INSERT id=7 → <b>秒过</b>，终态 1/5/7/10。RC 放弃间隙锁换来并发。",
+  "noIndex|rr": "行锁加在索引上：WHERE 列没索引时只能沿聚簇索引全扫，把<b>所有记录和所有间隙</b>都锁上——RR 下等于锁全表！这就是“更新一定要走索引”的原因。",
+  "noIndex|rc": "没有索引 → 锁全部<b>记录</b>（1、5、10），但不锁间隙； inserts into gaps 放行。同样危险，但范围小一档。"
+};
+
+function evalLock(){
+  var iso = document.querySelector("input[name='iso']:checked").value;
+  var q = document.querySelector("input[name='qry']:checked").value;
+  var ins = document.querySelector("input[name='ins']:checked").value;
+  var L = locksFor(iso, q);
+
+  var sqls = {
+    eqHit:"-- 会话A（" + (iso === "rr" ? "RR" : "RC") + "）\nSELECT * FROM t_gap WHERE id = 5 FOR UPDATE;",
+    eqMiss:"-- 会话A（" + (iso === "rr" ? "RR" : "RC") + "）\nSELECT * FROM t_gap WHERE id = 7 FOR UPDATE;  -- 不存在这行",
+    range:"-- 会话A（" + (iso === "rr" ? "RR" : "RC") + "）\nSELECT * FROM t_gap WHERE id BETWEEN 2 AND 9 FOR UPDATE;",
+    noIndex:"-- 会话A（" + (iso === "rr" ? "RR" : "RC") + "）\nUPDATE t_gap SET v = v + 1 WHERE v > 3;  -- v 列没有索引"
+  };
+  var insSql = {
+    ins3:"INSERT INTO t_gap VALUES (3, 30);   -- 会话B",
+    ins7:"INSERT INTO t_gap VALUES (7, 70);   -- 会话B",
+    ins11:"INSERT INTO t_gap VALUES (11, 110); -- 会话B",
+    upd5:"UPDATE t_gap SET v = v + 1 WHERE id = 5;  -- 会话B"
+  };
+  document.getElementById("lockSql").innerHTML = (sqls[q] + "\n" + insSql[ins]).replace(/</g,"&lt;").replace(/\n/g,"<br>");
+
+  /* 判定 */
+  var blocked, why;
+  if(ins === "ins3"){ blocked = gapHit(L.gaps,1,5); why = "位置 (1,5) " + (blocked ? "被间隙锁封住" : "没被锁"); }
+  else if(ins === "ins7"){ blocked = gapHit(L.gaps,5,10); why = "位置 (5,10) " + (blocked ? "被间隙锁封住" : "没被锁"); }
+  else if(ins === "ins11"){ blocked = gapHit(L.gaps,10,99); why = "尾部 (10,∞) " + (blocked ? "被间隙锁封住" : "没被锁"); }
+  else { blocked = L.recs.indexOf(5) >= 0; why = "id=5 这条记录 " + (blocked ? "被记录锁锁着" : "没有被锁"); }
+
+  /* 数字线渲染：段 [0,1],[1,5],[5,10],[10,14] + 键 1,5,10 */
+  var segs = [[0,1],[1,5],[5,10],[10,14]];
+  var total = 14;
+  var posIns = {ins3:3, ins7:7, ins11:11, upd5:5}[ins];
+  var html = "";
+  segs.forEach(function(s){
+    var locked = gapHit(L.gaps, s[0], s[1]);
+    var w = (s[1]-s[0]) / total * 100;
+    var inner = locked ? "间隙 (" + s[0] + "," + (s[1] === 99 ? "∞" : s[1]) + ")" : "";
+    var mk = "";
+    if(posIns > s[0] && posIns < s[1]){
+      var left = (posIns - s[0]) / (s[1]-s[0]) * 100;
+      mk = "<div class='marker' style='left:" + left + "%'>" + (ins === "upd5" ? "" : "INSERT " + posIns) + "</div>";
+    }
+    html += "<div class='seg" + (locked ? " gap" : "") + "' style='width:" + w + "%'>" + mk + inner + "</div>";
+    if(s[1] < 14){
+      var k = s[1] === 1 ? 1 : (s[1] === 5 ? 5 : 10);
+      var isRec = L.recs.indexOf(k) >= 0;
+      var insKey = (ins === "upd5" && k === 5);
+      html += "<div class='keybox" + (isRec ? " rec" : "") + "'>" + k + "<small>" + (isRec ? "记录锁" : "可自由改") + "</small>" +
+              (insKey ? "<div class='marker' style='position:static;display:block;margin:2px 0'>B 要改它</div>" : "") + "</div>";
+    }
+  });
+  document.getElementById("numline").innerHTML = html;
+
+  var gapStr = L.gaps.length ? L.gaps.map(function(g){ return "(" + g[0] + "," + (g[1] === 99 ? "∞" : g[1]) + ")"; }).join(" ") : "无";
+  document.getElementById("lockList").innerHTML =
+    "会话A 持有 → 记录锁：<b style='color:var(--redInk)'>" + (L.recs.length ? L.recs.join(", ") : "无") + "</b>　间隙锁：<b style='color:var(--amberInk)'>" + gapStr + "</b>";
+
+  var v = document.getElementById("verdict");
+  v.className = "verdict " + (blocked ? "block" : "free");
+  v.innerHTML = (blocked ? "⛔ 会被拦下" : "✅ 畅通无阻") + " —— " + why +
+    (blocked && ins !== "upd5" ? "，阻塞至超时报 <b>ERROR 1205</b>（对齐演示7 的实测）" : "") +
+    (!blocked && ins !== "upd5" && iso === "rc" && q !== "eqHit" ? "（RC 没有间隙锁，对齐演示8 的实测）" : "");
+
+  document.getElementById("lockFact").innerHTML = "对照实测：" + (LOCK_FACTS[q + "|" + iso] || "以真实 EXPLAIN / 实验为准。");
+}
+document.querySelectorAll("input[name='iso'],input[name='qry'],input[name='ins']").forEach(function(el){
+  el.addEventListener("change", evalLock);
+});
+
+/* ---------- 启动 ---------- */
+loadDemo(0);
+evalLock();
+</script>
+</body>
+</html>

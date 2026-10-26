@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>性能优化 · 互动演示</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#fff; --ink:#1f2933; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2563eb;
+    --green:#dcfce7; --greenInk:#166534; --amber:#fef3c7; --amberInk:#92400e;
+    --gray:#f3f4f6; --grayInk:#6b7280; --redInk:#991b1b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
+  header{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+  header h1{margin:0 0 6px;font-size:20px}
+  .howto{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 12px;font-size:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:8px 18px;border:1px solid var(--line);background:var(--card);border-radius:8px 8px 0 0;cursor:pointer;font-size:15px}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:0 12px 12px 12px;padding:18px}
+  .panel.active{display:block}
+
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:12px 0;padding:14px;background:#fafafa;border-radius:10px}
+  .controls label{font-size:14px;color:var(--ink)}
+  .ctl input[type=range]{width:200px;vertical-align:middle}
+  .ctl .val{display:inline-block;min-width:110px;font-family:Consolas,monospace;font-weight:700;color:var(--accent)}
+  .ctl input[type=number]{width:110px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+  button{padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-size:14px}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+
+  .bars{margin:14px 0}
+  .barrow{display:flex;align-items:center;gap:10px;margin:10px 0}
+  .barrow .bname{width:170px;font-size:14px;font-weight:700}
+  .barrow .btrack{flex:1;background:#f1f5f9;border-radius:8px;height:30px;position:relative;overflow:hidden}
+  .barrow .bfill{height:100%;border-radius:8px;transition:width .2s;display:flex;align-items:center;padding-left:10px;color:#fff;font-size:13px;font-weight:700;white-space:nowrap}
+  .barrow .bnum{font-family:Consolas,monospace;font-size:13px;width:150px;color:var(--ink)}
+  .bfill.bad{background:linear-gradient(90deg,#f87171,#ef4444)}
+  .bfill.mid{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+  .bfill.good{background:linear-gradient(90deg,#4ade80,#16a34a)}
+  .bfill.zero{background:linear-gradient(90deg,#a5b4fc,#818cf8)}
+
+  .sqlpreview{margin:8px 0 12px;padding:10px 12px;background:#f8fafc;border:1px dashed var(--line);border-radius:8px;font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap}
+  .fact{margin-top:12px;padding:10px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:13px;color:var(--greenInk)}
+  .warnbox{margin-top:12px;padding:10px 14px;border-radius:8px;background:var(--amber);border:1px solid #fcd34d;font-size:13px;color:var(--amberInk);display:none}
+  .note{font-size:13px;color:var(--muted);margin-top:10px}
+  .stats{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 16px;text-align:center;min-width:130px}
+  .stat b{display:block;font-size:20px;color:var(--accent)}
+  .stat span{font-size:12px;color:var(--muted)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0}
+  .optcard{border:2px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;cursor:pointer}
+  .optcard.pick{border-color:var(--accent);background:#eff6ff}
+  .optcard h4{margin:0 0 4px;font-size:14px}
+  .optcard p{margin:0;font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>性能优化 · 互动演示</h1>
+    <div class="howto">怎么玩：① 拖动「深分页」的表行数与页码，看三种写法扫描量的天壤之别；② 在「批量写入」里改行数，看提交次数（fsync）如何决定写入快慢；③ 在「COUNT」里按业务场景选方案。本页耗时数字按真实运行校准（10 万行实测），是模型推算——看量级，别抠个位数。</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="page">① 深分页扫描模拟器</button>
+    <button class="tab" data-tab="insert">② 批量写入计算器</button>
+    <button class="tab" data-tab="count">③ COUNT 方案选择器</button>
+  </div>
+
+  <!-- ============ 面板一：深分页 ============ -->
+  <section class="panel active" id="panel-page">
+    <div class="controls">
+      <div class="ctl"><label>表总行数</label><br>
+        <input type="range" id="pgRows" min="4" max="8" step="1" value="5">
+        <span class="val" id="pgRowsVal"></span>
+      </div>
+      <div class="ctl"><label>翻到第几页（每页 20 行）</label><br>
+        <input type="range" id="pgPage" min="1" max="500000" step="1" value="5000">
+        <span class="val" id="pgPageVal"></span>
+      </div>
+    </div>
+
+    <div class="sqlpreview" id="pgSql"></div>
+
+    <div class="stats">
+      <div class="stat"><b id="pgOffset">100000</b><span>offset（要"越过"的行数）</span></div>
+      <div class="stat"><b id="pgBest">63 倍</b><span>书签法 vs 直觉写法（本机 10 万行实测）</span></div>
+    </div>
+
+    <div class="bars" id="pgBars">
+      <div class="barrow"><div class="bname">① 直觉写法</div><div class="btrack"><div class="bfill bad" id="b1"></div></div><div class="bnum" id="n1"></div></div>
+      <div class="barrow"><div class="bname">② 书签法</div><div class="btrack"><div class="bfill good" id="b2"></div></div><div class="bnum" id="n2"></div></div>
+      <div class="barrow"><div class="bname">③ 延迟关联</div><div class="btrack"><div class="bfill mid" id="b3"></div></div><div class="bnum" id="n3"></div></div>
+    </div>
+
+    <div class="fact" id="pgFact"></div>
+    <div class="note">耗时模型：直觉写法 ≈ 扫描行数 × 1.9e-7 秒/行（按实测 0.0189 秒 @ 扫 100020 行校准）；延迟关联的窄索引（只有主键）按每页容纳约 8 倍行数折算；书签法只扫 20 行。直觉写法的耗时与 offset 成正比——表越大、页越深，越是灾难。</div>
+  </section>
+
+  <!-- ============ 面板二：批量写入 ============ -->
+  <section class="panel" id="panel-insert">
+    <div class="controls">
+      <div class="ctl"><label>要写入的行数</label><br>
+        <input type="number" id="insN" value="50000" min="100" max="5000000" step="100">
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b id="insFsync1">50000</b><span>姿势① 的提交/刷盘次数</span></div>
+      <div class="stat"><b>1</b><span>姿势②③ 的提交/刷盘次数</span></div>
+    </div>
+
+    <div class="bars">
+      <div class="barrow"><div class="bname">① 逐条 autocommit</div><div class="btrack"><div class="bfill bad" id="i1"></div></div><div class="bnum" id="in1"></div></div>
+      <div class="barrow"><div class="bname">② 同事务逐条</div><div class="btrack"><div class="bfill mid" id="i2"></div></div><div class="bnum" id="in2"></div></div>
+      <div class="barrow"><div class="bname">③ 一条多值 INSERT</div><div class="btrack"><div class="bfill good" id="i3"></div></div><div class="bnum" id="in3"></div></div>
+    </div>
+
+    <div class="warnbox" id="insWarn"></div>
+    <div class="fact">本机实测（5000 行）：姿势① <b>4.824 秒</b>（每条一个事务，每次提交都等 redo log 刷盘）→ 姿势② <b>0.098 秒</b>（49 倍）→ 姿势③ <b>0.032 秒</b>（151 倍）。瓶颈不是 CPU，是提交次数。应用层对应：别在循环里逐条 save()；MyBatis &lt;foreach&gt; / JDBC rewriteBatchedStatements=true。</div>
+    <div class="note">单行成本按 5000 行实测折算：① ≈ 0.96 毫秒/行、② ≈ 20 微秒/行、③ ≈ 6.4 微秒/行。注意事务不是越大越好：过大则 undo 膨胀、锁持有时间长，一般 1~10 万行一批。</div>
+  </section>
+
+  <!-- ============ 面板三：COUNT ============ -->
+  <section class="panel" id="panel-count">
+    <div class="cards" id="cntCards">
+      <div class="optcard" data-v="exact"><h4>必须精确</h4><p>对账、清结算、审计——错一行都不行</p></div>
+      <div class="optcard" data-v="approx"><h4>看量级就行</h4><p>报表、监控、"约 N 条"的展示</p></div>
+      <div class="optcard" data-v="cond"><h4>条件计数</h4><p>数的是某个子集：今天的订单、某状态的用户</p></div>
+      <div class="optcard" data-v="display"><h4>首页展示位</h4><p>高频访问、容忍极小误差</p></div>
+    </div>
+
+    <div class="sqlpreview" id="cntSql"></div>
+    <div class="fact" id="cntFact"></div>
+    <div class="note">InnoDB 不存总行数：MVCC 下每个事务看到的行集都不同，"一个总数"根本不存在——精确 COUNT(*) 只能选最小的索引树整个扫一遍。本机实测：精确 COUNT(*) = <b>100000</b>（约 0.01 秒）；information_schema 统计值 = <b>99288</b>（差 0.7%，但毫秒级返回）。</div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ================= Tab 切换 ================= */
+document.querySelectorAll(".tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".tab").forEach(function(b){b.classList.remove("active");});
+    document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ================= 工具 ================= */
+function fmtRows(n){
+  if(n >= 100000000) return (n/100000000).toFixed(1).replace(/\.0$/,"") + " 亿";
+  if(n >= 10000) return Math.round(n/10000) + " 万";
+  return String(n);
+}
+function fmtSec(s){
+  if(s >= 1) return s.toFixed(2) + " 秒";
+  if(s >= 0.001) return (s*1000).toFixed(s >= 0.01 ? 0 : 1) + " 毫秒";
+  return Math.round(s*1000000) + " 微秒";
+}
+function setBar(fillId, numId, val, max, labelText){
+  var pct = Math.max(2, Math.min(100, val / max * 100));
+  document.getElementById(fillId).style.width = pct + "%";
+  document.getElementById(fillId).textContent = (pct > 18 ? labelText : "");
+  document.getElementById(numId).textContent = fmtSec(val);
+}
+
+/* ================= 面板一：深分页 =================
+   校准：实测 写法1 扫 100020 行 = 0.0189 秒 → 1.89e-7 秒/行；
+   延迟关联扫"只有主键的窄索引"，每页约容纳 8 倍行数 → 1.89e-7/8。 */
+var ROWCOST = 1.89e-7, IDXFACTOR = 8, PAGESIZE = 20;
+
+function evalPage(){
+  var rows = Math.pow(10, parseInt(document.getElementById("pgRows").value, 10));
+  var page = parseInt(document.getElementById("pgPage").value, 10);
+  var maxPage = Math.max(1, Math.floor((rows - PAGESIZE) / PAGESIZE));
+  if(page > maxPage) page = maxPage;
+  var offset = (page - 1) * PAGESIZE;
+
+  document.getElementById("pgRowsVal").textContent = fmtRows(rows) + " 行";
+  document.getElementById("pgPageVal").textContent = "第 " + page + " 页";
+  document.getElementById("pgOffset").textContent = fmtRows(offset);
+  document.getElementById("pgPage").max = maxPage;
+
+  var t1 = (offset + PAGESIZE) * ROWCOST;
+  var t2 = PAGESIZE * ROWCOST;
+  var t3 = (offset + PAGESIZE) * ROWCOST / IDXFACTOR + PAGESIZE * ROWCOST;
+
+  setBar("b1","n1", t1, t1, fmtRows(offset + PAGESIZE) + " 行");
+  setBar("b2","n2", t2, t1, "20 行");
+  setBar("b3","n3", t3, t1, fmtRows(offset + PAGESIZE) + " 行窄索引 + 20 次回表");
+
+  document.getElementById("pgSql").textContent =
+    "-- ① 直觉写法（扫描 " + fmtRows(offset + PAGESIZE) + " 行，丢弃 " + fmtRows(offset) + " 行）\n" +
+    "SELECT * FROM t_user ORDER BY id LIMIT " + offset + ", " + PAGESIZE + ";\n\n" +
+    "-- ② 书签法（上一页末尾 id=" + offset + "，只扫 " + PAGESIZE + " 行；不能跳页）\n" +
+    "SELECT * FROM t_user WHERE id > " + offset + " ORDER BY id LIMIT " + PAGESIZE + ";\n\n" +
+    "-- ③ 延迟关联（offset 仍要扫，但扫的是只有主键的窄索引）\n" +
+    "SELECT u.* FROM t_user u JOIN (SELECT id FROM t_user ORDER BY id LIMIT " + offset + ", " + PAGESIZE + ") t ON u.id = t.id;";
+
+  var ratio = t1 / t2;
+  document.getElementById("pgFact").innerHTML =
+    "第 " + page + " 页：书签法约比直觉写法快 <b>" + (ratio >= 100 ? Math.round(ratio) : ratio.toFixed(1)) + " 倍</b>。" +
+    (offset < 1000 ? "offset 很小时直觉写法完全没问题——深分页优化只管\"深\"的页。" :
+     "直觉写法要白读并丢掉 <b>" + fmtRows(offset) + "</b> 行；书签法耗时与 offset <b>无关</b>，表再大、页再深都是毫秒级。");
+}
+document.getElementById("pgRows").addEventListener("input", function(){
+  document.getElementById("pgPage").value = 1;
+  evalPage();
+});
+document.getElementById("pgPage").addEventListener("input", evalPage);
+
+/* ================= 面板二：批量写入 =================
+   校准（5000 行实测）：姿势1 4.824s → 0.9648ms/行；姿势2 0.098s → 19.6µs/行；姿势3 0.032s → 6.4µs/行 */
+var PER = {p1:4.824/5000, p2:0.098/5000, p3:0.032/5000};
+
+function evalInsert(){
+  var n = parseInt(document.getElementById("insN").value, 10);
+  if(isNaN(n) || n < 100) n = 100;
+  if(n > 5000000) n = 5000000;
+  document.getElementById("insN").value = n;
+
+  var t1 = n * PER.p1, t2 = n * PER.p2, t3 = n * PER.p3;
+  document.getElementById("insFsync1").textContent = fmtRows(n);
+  setBar("i1","in1", t1, t1, n + " 次提交");
+  setBar("i2","in2", t2, t1, "1 次提交");
+  setBar("i3","in3", t3, t1, "1 次提交 + 一条 SQL");
+
+  var w = document.getElementById("insWarn");
+  if(n > 100000){
+    w.style.display = "block";
+    w.innerHTML = "⚠ " + fmtRows(n) + " 行建议<b>分批</b>：每 1~10 万行一批提交。单个巨型事务会让 undo 膨胀、长时间持锁，还可能撞上 max_allowed_packet（姿势③）——分批后依然比逐条快两个数量级。";
+  }else{
+    w.style.display = "none";
+  }
+}
+document.getElementById("insN").addEventListener("input", evalInsert);
+
+/* ================= 面板三：COUNT ================= */
+var CNT = {
+  exact:{
+    sql:"SELECT COUNT(*) FROM t_order;   -- 只能扫一遍最小的索引树\n-- 优化器会自动挑最小的那棵树，无需 hint",
+    fact:"精确没有捷径：亿级表要分钟级。<b>先确认是否真的需要精确</b>——很多\"必须精确\"其实是\"没问过业务\"。分区表可并行数各分区再求和。"
+  },
+  approx:{
+    sql:"SELECT TABLE_ROWS FROM information_schema.TABLES\nWHERE TABLE_SCHEMA='learn_perf' AND TABLE_NAME='t_user';\n-- 或 EXPLAIN 任意 SQL 看 rows 列",
+    fact:"毫秒级返回。本机实测：真实 <b>100000</b> vs 统计 <b>99288</b>（差 0.7%）。统计来自采样（ANALYZE TABLE 刷新），误差随写入漂移，通常在 10% 以内——监控、看板完全够用。"
+  },
+  cond:{
+    sql:"-- 今天的订单数：别数全表，让 COUNT 只扫索引的一小段\nSELECT COUNT(*) FROM t_order WHERE created_at >= CURDATE();\n-- 前提：created_at 上有索引（联合索引把 created_at 放到能定位的位置）",
+    fact:"条件计数的关键不在 COUNT 而在<b>索引</b>：命中一段索引就只数这一段。再配合时间分区/归档，\"数今天\"永远是毫秒级。"
+  },
+  display:{
+    sql:"-- 业务写路径顺手维护（或触发器）：\nUPDATE stat SET cnt = cnt + 1 WHERE k = 'order_total';\n-- 读：SELECT cnt FROM stat WHERE k='order_total';  -- 毫秒级",
+    fact:"Redis INCR 或计数表，读写都是毫秒级。代价：要与业务写入保持一致（事务内更新计数表 / 监听 binlog 同步 Redis），崩溃或并发下可能差几条——展示位完全可接受。"
+  }
+};
+function evalCount(v){
+  document.querySelectorAll("#cntCards .optcard").forEach(function(c){
+    c.classList.toggle("pick", c.dataset.v === v);
+  });
+  document.getElementById("cntSql").textContent = CNT[v].sql;
+  document.getElementById("cntFact").innerHTML = CNT[v].fact;
+}
+document.querySelectorAll("#cntCards .optcard").forEach(function(c){
+  c.addEventListener("click", function(){ evalCount(this.dataset.v); });
+});
+
+/* ---------- 启动 ---------- */
+evalPage();
+evalInsert();
+evalCount("approx");
+</script>
+</body>
+</html>
