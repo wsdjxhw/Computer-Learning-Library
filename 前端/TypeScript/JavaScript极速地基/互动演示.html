@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JavaScript 极速地基 · 互动演示</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1f2937; --muted: #6b7280;
+    --line: #e5e7eb; --accent: #2563eb; --micro: #7c3aed; --macro: #0891b2;
+    --ok: #16a34a; --bad: #dc2626; --warn-bg: #fef9c3; --code-bg: #0f172a; --code-ink: #e2e8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: var(--bg); color: var(--ink); padding: 16px; }
+  header { max-width: 980px; margin: 0 auto 12px; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  .howto { background: var(--warn-bg); border: 1px solid #fde047; border-radius: 8px; padding: 8px 12px; font-size: 13px; line-height: 1.7; }
+  .tabs { display: flex; gap: 8px; max-width: 980px; margin: 12px auto; flex-wrap: wrap; }
+  .tab-btn { padding: 8px 14px; border: 1px solid var(--line); background: var(--card); border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .panel { display: none; max-width: 980px; margin: 0 auto; }
+  .panel.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .card h2 { font-size: 15px; margin-bottom: 8px; }
+  .card p.desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.7; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.7; overflow-x: auto; font-family: Consolas, monospace; }
+  button.op { padding: 6px 14px; border: 1px solid var(--accent); color: var(--accent); background: #fff; border-radius: 7px; cursor: pointer; font-size: 13px; }
+  button.op:hover { background: var(--accent); color: #fff; }
+  button.op:disabled { opacity: .4; cursor: not-allowed; }
+  select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; font-size: 14px; background: #fff; }
+  .cols { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cols > div { flex: 1 1 200px; }
+  .queue { border: 1px dashed var(--line); border-radius: 8px; min-height: 64px; padding: 8px; background: #fafafa; }
+  .queue h3 { font-size: 13px; margin-bottom: 6px; }
+  .chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; margin: 2px; color: #fff; }
+  .chip.micro { background: var(--micro); }
+  .chip.macro { background: var(--macro); }
+  .chip.leaving { outline: 2px solid var(--bad); }
+  .explain { background: #eff6ff; border-left: 3px solid var(--accent); padding: 8px 12px; font-size: 13px; line-height: 1.7; border-radius: 0 8px 8px 0; margin-top: 10px; }
+  .outbox { background: #0f172a; color: #a7f3d0; font-family: Consolas, monospace; font-size: 13px; border-radius: 8px; padding: 10px 12px; min-height: 90px; line-height: 1.8; white-space: pre-wrap; }
+  .verdict { font-size: 15px; font-weight: bold; margin: 8px 0; }
+  .verdict.true { color: var(--ok); }
+  .verdict.false { color: var(--bad); }
+  .rule { font-size: 13px; color: var(--muted); line-height: 1.7; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; }
+  th { background: #f3f4f6; }
+  code { background: #eef2f7; border-radius: 4px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 12.5px; }
+  .objcard { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fafafa; flex: 1 1 240px; }
+  .objcard.changed { border-color: var(--bad); box-shadow: 0 0 0 2px #fecaca; }
+  .objcard h3 { font-size: 13px; margin-bottom: 6px; }
+  .log { font-size: 13px; line-height: 1.9; }
+  .log .hit { color: var(--bad); font-weight: bold; }
+  .log .miss { color: var(--ok); }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>JavaScript 极速地基 · 互动演示</h1>
+  <div class="howto">
+    怎么玩：上方三个标签页 —— ① <b>事件循环调度器</b>：选一个场景，点「单步执行」看同步代码、微任务、宏任务谁先谁后；② <b>相等判定器</b>：左右各选一个值，看 <code>==</code> 与 <code>===</code> 结果差在哪；③ <b>引用拷贝实验室</b>：点按钮改"拷贝"的对象，看原始对象什么时候跟着变。
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="loop">① 事件循环调度器</button>
+  <button class="tab-btn" data-tab="eq">② 相等判定器（== vs ===）</button>
+  <button class="tab-btn" data-tab="ref">③ 引用拷贝实验室</button>
+</div>
+
+<!-- ======================= ① 事件循环调度器 ======================= -->
+<div class="panel active" id="panel-loop">
+  <div class="card">
+    <h2>场景选择</h2>
+    <select id="sceneSelect"></select>
+    <span class="muted" id="sceneTitle"></span>
+  </div>
+  <div class="card">
+    <h2>场景代码（<span class="muted">log(x) 是 console.log(x) 的简写</span>）</h2>
+    <pre id="sceneCode"></pre>
+    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="op" id="btnStep">单步执行 ▶</button>
+      <button class="op" id="btnAuto">自动播放 ⏩</button>
+      <button class="op" id="btnReset">重置 ↺</button>
+      <span class="muted" id="stepInfo" style="align-self:center;"></span>
+    </div>
+  </div>
+  <div class="cols" style="margin-bottom:12px;">
+    <div class="card" style="margin-bottom:0;">
+      <h2>微任务队列（清空到底）</h2>
+      <div class="queue" id="microQ"></div>
+    </div>
+    <div class="card" style="margin-bottom:0;">
+      <h2>宏任务队列（一次取一个）</h2>
+      <div class="queue" id="macroQ"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>输出结果</h2>
+    <div class="outbox" id="loopOut">（还没有输出）</div>
+    <div class="explain" id="loopExplain">点「单步执行」开始。记住口诀：同步代码跑到底 → 微任务清空到底 → 才取一个宏任务。</div>
+  </div>
+</div>
+
+<!-- ======================= ② 相等判定器 ======================= -->
+<div class="panel" id="panel-eq">
+  <div class="card">
+    <h2>左右各选一个值</h2>
+    <div class="cols">
+      <div><p class="desc">左值</p><select id="leftSel"></select></div>
+      <div><p class="desc">右值</p><select id="rightSel"></select></div>
+    </div>
+  </div>
+  <div class="cols">
+    <div class="card">
+      <h2>宽松相等 ==（会隐式转换）</h2>
+      <div class="verdict" id="looseVerdict"></div>
+      <p class="rule" id="looseRule"></p>
+    </div>
+    <div class="card">
+      <h2>严格相等 ===（不转换）</h2>
+      <div class="verdict" id="strictVerdict"></div>
+      <p class="rule" id="strictRule"></p>
+    </div>
+  </div>
+  <div class="card">
+    <h2>常见组合速查（先猜再点上面验证）</h2>
+    <table>
+      <tr><th>表达式</th><th>结果</th><th>原因</th></tr>
+      <tr><td><code>'5' == 5</code></td><td>true</td><td>字符串转数字 5</td></tr>
+      <tr><td><code>'' == 0</code></td><td>true</td><td>空串转数字 0</td></tr>
+      <tr><td><code>'0' == false</code></td><td>true</td><td>false→0，'0'→0</td></tr>
+      <tr><td><code>null == undefined</code></td><td>true</td><td>特例：仅彼此相等</td></tr>
+      <tr><td><code>null == 0</code></td><td>false</td><td>null 只与 undefined 宽松相等</td></tr>
+      <tr><td><code>NaN == NaN</code></td><td>false</td><td>NaN 谁都不等，包括自己</td></tr>
+      <tr><td><code>[] == 0</code></td><td>true</td><td>[] 转原始值 ''，再转数字 0</td></tr>
+      <tr><td><code>[] == '0'</code></td><td>false</td><td>[] → ''，'' 与 '0' 是两个不同字符串</td></tr>
+      <tr><td><code>[0] == 0</code></td><td>true</td><td>[0] → '0' → 0</td></tr>
+      <tr><td><code>[] == []</code></td><td>false</td><td>两个对象比引用，不是比内容</td></tr>
+    </table>
+    <p class="rule" style="margin-top:8px;">团队规约：一律用 <code>===</code>；<code>==</code> 唯一合理用途是 <code>x == null</code>（一口气判 null 和 undefined）。</p>
+  </div>
+</div>
+
+<!-- ======================= ③ 引用拷贝实验室 ======================= -->
+<div class="panel" id="panel-ref">
+  <div class="card">
+    <h2>操作台</h2>
+    <p class="desc">原始对象 <code>original = { name: '键盘', info: { stock: 10 } }</code>。点下面的按钮对"新变量"动手脚，观察右侧两个对象谁变了。</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="op" data-op="ref">b = original，改 b.name</button>
+      <button class="op" data-op="shallowTop">浅拷贝 {...original}，改顶层 name</button>
+      <button class="op" data-op="shallowNested">浅拷贝 {...original}，改嵌套 info.stock</button>
+      <button class="op" data-op="deep">深拷贝 structuredClone，改嵌套 info.stock</button>
+      <button class="op" id="btnRefReset">重置 ↺</button>
+    </div>
+  </div>
+  <div class="cols" id="refCards">
+    <div class="objcard" id="cardOrig">
+      <h3>原始对象 original</h3>
+      <pre id="origJson"></pre>
+    </div>
+    <div class="objcard" id="cardCopy">
+      <h3 id="copyTitle">新变量</h3>
+      <pre id="copyJson"></pre>
+    </div>
+  </div>
+  <div class="card">
+    <h2>结论记录</h2>
+    <div class="log" id="refLog">（还没有操作）</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================ ① 事件循环调度器 ============================ */
+/* 每一步：code 当前在跑什么 / explain 解释 / micro macro 该时刻的队列内容 / out 新增输出 */
+var SCENARIOS = [
+  {
+    name: '最小模型：同步 → 微任务 → 宏任务',
+    code: "log('A');\nsetTimeout(() => log('D'), 0);\nPromise.resolve().then(() => log('C'));\nlog('B');",
+    steps: [
+      { code: "log('A')", explain: "脚本开始：同步代码立刻执行，队列里的任务都只能干等。", micro: [], macro: [], out: 'A' },
+      { code: "setTimeout(..., 0)", explain: "定时器交给运行时，回调进【宏任务】队列——0ms 也不插队。", micro: [], macro: ['D 回调'], out: null },
+      { code: ".then(() => log('C'))", explain: "Promise 已经解决，回调进【微任务】队列。", micro: ['C 回调'], macro: ['D 回调'], out: null },
+      { code: "log('B')", explain: "同步代码继续执行。注意：此时 C、D 都还没轮到。", micro: ['C 回调'], macro: ['D 回调'], out: 'B' },
+      { code: '栈空 → 清微任务', explain: "同步代码跑完、栈空了。先执行微任务 C。", micro: [], macro: ['D 回调'], out: 'C' },
+      { code: '取一个宏任务', explain: '微任务队列清空到底，才轮到宏任务 D。最终顺序 A B C D。', micro: [], macro: [], out: 'D' }
+    ],
+    expect: ['A', 'B', 'C', 'D']
+  },
+  {
+    name: 'async / await：挂起与恢复',
+    code: "async function main() {\n  log('1');\n  const d = await fetch(7);\n  log('3');\n}\nmain().then(d => log('4'));\nlog('2');",
+    steps: [
+      { code: "main() → log('1')", explain: '调用 main，函数体同步执行，直到撞上 await。', micro: [], macro: [], out: '1' },
+      { code: 'await fetch(7)', explain: "await：main 挂起，【await 之后的代码（输出 3）】作为一个微任务入队；控制权还给调用方。", micro: ['恢复 main（将输出 3）'], macro: [], out: null },
+      { code: "main().then(d => log('4'))", explain: 'main() 已返回 Promise，挂上 then——注意：4 的回调现在还不能入队，要等 main 完成。', micro: ['恢复 main（将输出 3）'], macro: [], out: null },
+      { code: "log('2')", explain: '脚本继续同步执行，输出 2。', micro: ['恢复 main（将输出 3）'], macro: [], out: '2' },
+      { code: '栈空 → 恢复 main', explain: "执行恢复 main 的微任务：输出 3；main 到此结束，Promise 完成 → 4 的回调此刻才排到队尾。", micro: ["log('4') 回调"], macro: [], out: '3' },
+      { code: "微任务：log('4')", explain: '执行 4 的回调。最终顺序 1 2 3 4——await 之后剩下的代码本质就是 .then 回调。', micro: [], macro: [], out: '4' }
+    ],
+    expect: ['1', '2', '3', '4']
+  },
+  {
+    name: '完整实战：示例 04 的 11 行输出（输出用简写）',
+    code: "log('A');\nsetTimeout(() => log('D'), 0);\nPromise.resolve().then(() => log('C'));\nlog('B');\n// --- 上面是场景1，下面加上 async/main 和第二条 Promise 链 ---\nasync function main() {\n  log('1'); const d = await fetch(7); log('3');\n}\nmain().then(d => log('4'));\nlog('2');\nsetTimeout(() => log('timeout1'), 0);\nPromise.resolve().then(() => log('then1')).then(() => log('then2'));",
+    steps: [
+      { code: "log('A')", explain: '同步执行。', micro: [], macro: [], out: 'A' },
+      { code: 'setTimeout(D, 0)', explain: 'D 回调进宏任务队列。', micro: [], macro: ['D 回调'], out: null },
+      { code: '.then(C)', explain: 'C 回调进微任务队列。', micro: ['C 回调'], macro: ['D 回调'], out: null },
+      { code: "log('B')", explain: '同步执行。', micro: ['C 回调'], macro: ['D 回调'], out: 'B' },
+      { code: "main() → log('1')", explain: '调用 main，同步执行到 await。', micro: ['C 回调'], macro: ['D 回调'], out: '1' },
+      { code: 'await：main 挂起', explain: '恢复 main 的微任务【排到队尾】——在 C 后面。', micro: ['C 回调', '恢复 main（将输出 3）'], macro: ['D 回调'], out: null },
+      { code: "main().then(log'4')", explain: '4 的回调挂上，等 main 完成时才入队。', micro: ['C 回调', '恢复 main（将输出 3）'], macro: ['D 回调'], out: null },
+      { code: "log('2')", explain: '同步执行。', micro: ['C 回调', '恢复 main（将输出 3）'], macro: ['D 回调'], out: '2' },
+      { code: 'setTimeout(timeout1)', explain: 'timeout1 回调进宏任务队列（排在 D 后面）。', micro: ['C 回调', '恢复 main（将输出 3）'], macro: ['D 回调', 'timeout1 回调'], out: null },
+      { code: '.then(then1)', explain: 'then1 回调进微任务队尾。注意 then2 还不能入队——要等 then1 执行完。', micro: ['C 回调', '恢复 main（将输出 3）', 'then1 回调'], macro: ['D 回调', 'timeout1 回调'], out: null },
+      { code: '栈空 → 微任务：C', explain: '微任务队列开始清空：第一个是 C。', micro: ['恢复 main（将输出 3）', 'then1 回调'], macro: ['D 回调', 'timeout1 回调'], out: 'C' },
+      { code: '微任务：恢复 main', explain: '输出 3；main 完成 → 4 的回调【排到当前队尾】（在 then1 后面）。', micro: ['then1 回调', "log('4') 回调"], macro: ['D 回调', 'timeout1 回调'], out: '3' },
+      { code: '微任务：then1', explain: '输出 then1；then1 完成 → then2 的回调此刻才排到队尾（在 4 后面）。', micro: ["log('4') 回调", 'then2 回调'], macro: ['D 回调', 'timeout1 回调'], out: 'then1' },
+      { code: "微任务：log('4')", explain: "注意看：4 排在 then2 前面！队列是先进先出，谁先入队谁先执行——这正是示例 04 实测输出里 4 在 then2 之前的原因。", micro: ['then2 回调'], macro: ['D 回调', 'timeout1 回调'], out: '4' },
+      { code: '微任务：then2', explain: '最后一个微任务。微任务队列清空到底。', micro: [], macro: ['D 回调', 'timeout1 回调'], out: 'then2' },
+      { code: '宏任务：D', explain: '微任务清空后，才取第一个宏任务 D。', micro: [], macro: ['timeout1 回调'], out: 'D' },
+      { code: '宏任务：timeout1', explain: '最终顺序：A B 1 2 C 3 then1 4 then2 D timeout1（与示例 04 真实运行一致）。', micro: [], macro: [], out: 'timeout1' }
+    ],
+    expect: ['A', 'B', '1', '2', 'C', '3', 'then1', '4', 'then2', 'D', 'timeout1']
+  }
+];
+
+var loopState = { scene: 0, step: -1, outs: [], timer: null };
+
+function renderScene() {
+  var sc = SCENARIOS[loopState.scene];
+  document.getElementById('sceneCode').textContent = sc.code;
+  document.getElementById('sceneTitle').textContent = '（' + sc.steps.length + ' 步）';
+  resetLoop(false);
+}
+function resetLoop(redraw) {
+  var sc = SCENARIOS[loopState.scene];
+  loopState.step = -1; loopState.outs = [];
+  if (loopState.timer) { clearInterval(loopState.timer); loopState.timer = null; }
+  document.getElementById('loopOut').textContent = '（还没有输出）';
+  document.getElementById('loopExplain').textContent = '点「单步执行」开始。记住口诀：同步代码跑到底 → 微任务清空到底 → 才取一个宏任务。';
+  document.getElementById('stepInfo').textContent = '';
+  document.getElementById('btnStep').disabled = false;
+  document.getElementById('btnAuto').disabled = false;
+  if (redraw) { drawQueues([], []); }
+}
+function drawQueues(micro, macro) {
+  var mq = document.getElementById('microQ'), aq = document.getElementById('macroQ');
+  mq.innerHTML = micro.length ? micro.map(function (t) { return '<span class="chip micro">' + t + '</span>'; }).join('') : '<span class="muted">（空）</span>';
+  aq.innerHTML = macro.length ? macro.map(function (t) { return '<span class="chip macro">' + t + '</span>'; }).join('') : '<span class="muted">（空）</span>';
+}
+function doStep() {
+  var sc = SCENARIOS[loopState.scene];
+  if (loopState.step >= sc.steps.length - 1) {
+    document.getElementById('loopExplain').textContent = '✔ 场景跑完。期望输出：' + sc.expect.join(' ') + ' —— 和上方输出对得上吗？';
+    if (loopState.timer) { clearInterval(loopState.timer); loopState.timer = null; }
+    document.getElementById('btnStep').disabled = true;
+    document.getElementById('btnAuto').disabled = true;
+    return;
+  }
+  loopState.step++;
+  var st = sc.steps[loopState.step];
+  drawQueues(st.micro, st.macro);
+  if (st.out !== null && st.out !== undefined) {
+    loopState.outs.push(st.out);
+    document.getElementById('loopOut').textContent = loopState.outs.join('\n');
+  }
+  document.getElementById('loopExplain').textContent = '第 ' + (loopState.step + 1) + '/' + sc.steps.length + ' 步【' + st.code + '】' + st.explain;
+  document.getElementById('stepInfo').textContent = '第 ' + (loopState.step + 1) + ' / ' + sc.steps.length + ' 步';
+}
+
+/* ============================ ② 相等判定器 ============================ */
+var PAIRS = [
+  { label: '0', make: function () { return 0; } },
+  { label: '1', make: function () { return 1; } },
+  { label: '5', make: function () { return 5; } },
+  { label: "'1'", make: function () { return '1'; } },
+  { label: "'5'", make: function () { return '5'; } },
+  { label: "''（空字符串）", make: function () { return ''; } },
+  { label: "'0'", make: function () { return '0'; } },
+  { label: 'false', make: function () { return false; } },
+  { label: 'true', make: function () { return true; } },
+  { label: 'null', make: function () { return null; } },
+  { label: 'undefined', make: function () { return undefined; } },
+  { label: 'NaN', make: function () { return NaN; } },
+  { label: '[]（空数组）', make: function () { return []; } },
+  { label: '[0]', make: function () { return [0]; } }
+];
+function typeOf(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return 'array';
+  return typeof v;
+}
+/* 解释 == 走了哪条规则（结果本身由 JS 引擎算，保证不会错） */
+function explainLoose(x, y) {
+  var xN = (x === null || x === undefined), yN = (y === null || y === undefined);
+  if (xN && yN) return '特例规则：null 与 undefined 宽松相等，且只与彼此相等。';
+  if (xN || yN) return 'null / undefined 只与彼此宽松相等，跟其他任何值比都是 false，不做任何转换。';
+  if (x !== x || y !== y) return 'NaN 参与比较：NaN 与任何值（包括它自己）都不相等，无论 == 还是 ===。';
+  var tx = typeOf(x), ty = typeOf(y);
+  if (tx === ty) {
+    if (tx === 'array') return '两边都是对象：比较的是【引用】（是不是同一个对象），不是内容。';
+    return '同类型：不做转换，直接比值。';
+  }
+  if (tx === 'boolean' || ty === 'boolean') return '布尔参与：先转数字（true→1，false→0），再按数字规则比。';
+  if ((tx === 'number' && ty === 'string') || (tx === 'string' && ty === 'number')) return '数字遇字符串：字符串转数字再比。';
+  if (tx === 'array' || ty === 'array') return '对象遇原始值：对象先转原始值（数组 toString()，如 [] → 空串、[0] → "0"），再按前面的规则比。';
+  return '其他组合按规范逐条转换。';
+}
+function renderEq() {
+  var li = document.getElementById('leftSel').value, ri = document.getElementById('rightSel').value;
+  var x = PAIRS[+li].make(), y = PAIRS[+ri].make();
+  var loose = (x == y), strict = (x === y);
+  var lv = document.getElementById('looseVerdict');
+  lv.textContent = PAIRS[+li].label + '  ==  ' + PAIRS[+ri].label + '   →   ' + loose;
+  lv.className = 'verdict ' + loose;
+  document.getElementById('looseRule').textContent = '走了哪条规则：' + explainLoose(x, y) + '（左边类型 ' + typeOf(x) + '，右边类型 ' + typeOf(y) + '）';
+  var sv = document.getElementById('strictVerdict');
+  sv.textContent = PAIRS[+li].label + '  ===  ' + PAIRS[+ri].label + '   →   ' + strict;
+  sv.className = 'verdict ' + strict;
+  document.getElementById('strictRule').textContent = typeOf(x) === typeOf(y)
+    ? '类型相同（都是 ' + typeOf(x) + '）：不转换，直接比值/引用。'
+    : '类型不同（' + typeOf(x) + ' vs ' + typeOf(y) + '）：=== 直接判 false，不做任何转换。';
+}
+
+/* ============================ ③ 引用拷贝实验室 ============================ */
+var refState = null;
+function freshOriginal() { return { name: '键盘', info: { stock: 10 } }; }
+function resetRef() {
+  refState = { original: freshOriginal(), other: null, title: '新变量', log: [] };
+  drawRef();
+}
+function drawRef(changedBoth, changedCopy) {
+  document.getElementById('origJson').textContent = JSON.stringify(refState.original, null, 2);
+  document.getElementById('copyJson').textContent = refState.other === null ? '（还没创建）' : JSON.stringify(refState.other, null, 2);
+  document.getElementById('copyTitle').textContent = refState.title;
+  document.getElementById('cardOrig').className = 'objcard' + (changedBoth ? ' changed' : '');
+  document.getElementById('cardCopy').className = 'objcard' + (changedCopy ? ' changed' : '');
+  document.getElementById('refLog').innerHTML = refState.log.length ? refState.log.join('<br>') : '（还没有操作）';
+}
+var REF_OPS = {
+  ref: {
+    title: 'b（= original，同一对象）',
+    run: function (s) { var b = s.original; b.name = '鼠标（改的是 b）'; s.other = b; },
+    note: '<span class="hit">原始对象跟着变了！</span> b = original 只是复制了"指向"，两个变量是同一个对象。'
+  },
+  shallowTop: {
+    title: 'copy（浅拷贝 {...original}）',
+    run: function (s) { var c = Object.assign({}, s.original); c.name = '鼠标'; s.other = c; },
+    note: '<span class="miss">原始对象安然无恙。</span>第一层是拷贝出来的，改顶层字段互不影响。'
+  },
+  shallowNested: {
+    title: 'copy（浅拷贝 {...original}）',
+    run: function (s) { var c = Object.assign({}, s.original); c.info.stock = 999; s.other = c; },
+    note: '<span class="hit">原始对象 info.stock 也变成 999 了！</span>"浅"拷贝只复制第一层，嵌套的 info 仍然是同一个对象——示例 03 的实测坑。'
+  },
+  deep: {
+    title: 'copy（深拷贝 structuredClone）',
+    run: function (s) { var c = structuredClone(s.original); c.info.stock = 1; s.other = c; },
+    note: '<span class="miss">原始对象安然无恙。</span>深拷贝递归复制所有层级，两边彻底分离。'
+  }
+};
+
+/* ============================ 初始化与事件绑定 ============================ */
+function init() {
+  /* 标签页切换 */
+  var btns = document.querySelectorAll('.tab-btn');
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn, .panel').forEach(function (el) { el.classList.remove('active'); });
+      this.classList.add('active');
+      document.getElementById('panel-' + this.dataset.tab).classList.add('active');
+    });
+  }
+  /* ① 场景 */
+  var sel = document.getElementById('sceneSelect');
+  SCENARIOS.forEach(function (sc, i) {
+    var o = document.createElement('option');
+    o.value = i; o.textContent = (i + 1) + '. ' + sc.name;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', function () { loopState.scene = +this.value; renderScene(); });
+  document.getElementById('btnStep').addEventListener('click', doStep);
+  document.getElementById('btnAuto').addEventListener('click', function () {
+    if (loopState.timer) { clearInterval(loopState.timer); loopState.timer = null; return; }
+    loopState.timer = setInterval(doStep, 900);
+  });
+  document.getElementById('btnReset').addEventListener('click', function () { resetLoop(true); });
+  /* ② 相等 */
+  var ls = document.getElementById('leftSel'), rs = document.getElementById('rightSel');
+  PAIRS.forEach(function (p, i) {
+    var o1 = document.createElement('option'); o1.value = i; o1.textContent = p.label; ls.appendChild(o1);
+    var o2 = document.createElement('option'); o2.value = i; o2.textContent = p.label; rs.appendChild(o2);
+  });
+  ls.value = 6; rs.value = 7;   /* 默认展示 '0' vs false */
+  ls.addEventListener('change', renderEq);
+  rs.addEventListener('change', renderEq);
+  /* ③ 引用 */
+  document.querySelectorAll('#panel-ref .op[data-op]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var op = REF_OPS[this.dataset.op];
+      refState.original = freshOriginal();
+      refState.title = op.title;
+      op.run(refState);
+      refState.log.unshift('【' + this.textContent + '】 ' + op.note);
+      var both = this.dataset.op === 'ref' || this.dataset.op === 'shallowNested';
+      drawRef(both, true);
+    });
+  });
+  document.getElementById('btnRefReset').addEventListener('click', resetRef);
+  renderScene();
+  drawQueues([], []);
+  renderEq();
+  resetRef();
+}
+init();
+</script>
+</body>
+</html>
