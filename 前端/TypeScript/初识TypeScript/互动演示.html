@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>初识 TypeScript · 互动演示</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1f2937; --muted: #6b7280;
+    --line: #e5e7eb; --accent: #2563eb; --ok: #16a34a; --bad: #dc2626;
+    --warn-bg: #fef9c3; --code-bg: #0f172a; --code-ink: #e2e8f0;
+    --type-mark: #fde68a; --runtime-mark: #bbf7d0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: var(--bg); color: var(--ink); padding: 16px; }
+  header { max-width: 980px; margin: 0 auto 12px; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  .howto { background: var(--warn-bg); border: 1px solid #fde047; border-radius: 8px; padding: 8px 12px; font-size: 13px; line-height: 1.7; }
+  .tabs { display: flex; gap: 8px; max-width: 980px; margin: 12px auto; flex-wrap: wrap; }
+  .tab-btn { padding: 8px 14px; border: 1px solid var(--line); background: var(--card); border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .panel { display: none; max-width: 980px; margin: 0 auto; }
+  .panel.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .card h2 { font-size: 15px; margin-bottom: 8px; }
+  .card p.desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.7; }
+  button.op { padding: 6px 14px; border: 1px solid var(--accent); color: var(--accent); background: #fff; border-radius: 7px; cursor: pointer; font-size: 13px; }
+  button.op:hover { background: var(--accent); color: #fff; }
+  select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; font-size: 14px; background: #fff; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.8; overflow-x: auto; font-family: Consolas, monospace; white-space: pre; }
+  pre.src { white-space: pre-wrap; }
+  .tk { border-radius: 3px; padding: 0 1px; }
+  .tk.type { background: var(--type-mark); color: #7c2d12; }
+  .tk.runtime { background: var(--runtime-mark); color: #14532d; }
+  .tk.erased { text-decoration: line-through; opacity: 0.35; transition: all .5s; }
+  .cols { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cols > div { flex: 1 1 220px; }
+  .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend span { display: inline-block; padding: 1px 6px; border-radius: 3px; margin: 0 2px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; color: #fff; margin: 4px 2px; }
+  .badge.block { background: var(--ok); }
+  .badge.silent { background: var(--bad); }
+  .badge.note { background: var(--muted); }
+  .node { border: 1px solid var(--line); border-left: 4px solid var(--accent); background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; transition: all .4s; }
+  .node code { background: #eef2f7; border-radius: 4px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 12.5px; }
+  .node .note { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.7; }
+  .node.infected { border-left-color: var(--bad); background: #fef2f2; }
+  .node.infected .note { color: var(--bad); }
+  .node.guarded { border-left-color: var(--ok); background: #f0fdf4; }
+  .node .err { display: none; margin-top: 6px; font-family: Consolas, monospace; font-size: 12px; color: var(--bad); background: #fee2e2; border-radius: 6px; padding: 6px 8px; }
+  .node.infected .err, .node.guarded .err { display: block; }
+  .arrow { text-align: center; color: var(--muted); font-size: 14px; margin: -4px 0 4px; }
+  code { background: #eef2f7; border-radius: 4px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 12.5px; }
+  .result { font-family: Consolas, monospace; font-size: 13px; background: #0f172a; color: #a7f3d0; border-radius: 8px; padding: 8px 12px; margin-top: 8px; min-height: 40px; white-space: pre-wrap; }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>初识 TypeScript · 互动演示</h1>
+  <div class="howto">
+    怎么玩：① <b>类型擦除演示器</b>：选一个代码片段，点「编译 ▶」，看黄色的类型标注被划掉消失、绿色部分保留——enum 那段有惊喜；② <b>检查时机对比</b>：同一个 bug 在 Java / JS / TS 里的四种下场，逐张卡点「运行」；③ <b>any 传染实验</b>：点「引入 any」看防线逐节点失守，再点「改用 unknown」看防线在哪里停住。
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="erase">① 类型擦除演示器</button>
+  <button class="tab-btn" data-tab="phase">② 检查时机对比</button>
+  <button class="tab-btn" data-tab="any">③ any 传染实验</button>
+</div>
+
+<!-- ======================= ① 类型擦除 ======================= -->
+<div class="panel active" id="panel-erase">
+  <div class="card">
+    <h2>选择片段</h2>
+    <select id="segSelect"></select>
+    <span class="muted" id="segTitle"></span>
+    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="op" id="btnCompile">编译 ▶</button>
+      <button class="op" id="btnEraseReset">重置 ↺</button>
+    </div>
+    <div class="legend">
+      图例：<span style="background:var(--type-mark);">黄色 = 类型标注</span>（编译后被擦除）
+      <span style="background:var(--runtime-mark);">绿色 = 运行时行为</span>（保留，可能变形）
+    </div>
+  </div>
+  <div class="cols">
+    <div class="card" style="margin-bottom:0;">
+      <h2>源码（.ts）</h2>
+      <pre class="src" id="srcBox"></pre>
+    </div>
+    <div class="card" style="margin-bottom:0;">
+      <h2>产物（.js，类型擦除后）</h2>
+      <pre id="outBox">（点「编译 ▶」后出现）</pre>
+    </div>
+  </div>
+  <div class="card" id="eraseExplain" style="margin-top:12px;">
+    <p class="desc" id="segExplain"></p>
+  </div>
+</div>
+
+<!-- ======================= ② 检查时机 ======================= -->
+<div class="panel" id="panel-phase">
+  <div class="card">
+    <h2>同一个 bug 的四种下场</h2>
+    <p class="desc">业务逻辑一模一样：用户在输入框里敲了 <code>'25'</code>（字符串），程序要算 <code>年龄 = 输入 + 1</code>。逐张卡点「运行 ▶」看结果——注意"没报错"不等于"没 bug"。</p>
+  </div>
+  <div class="cols" id="phaseCards"></div>
+  <div class="card" style="margin-top:12px;">
+    <p class="desc">结论：Java 和 TS 的防线都在<b>编译期</b>；JS 的检查只在<b>运行时</b>（而且这道题它根本不检查）；第 4 张卡是 TS 的能力边界——类型是"标注"不是"保证"，外部数据要运行时校验兜底。</p>
+  </div>
+</div>
+
+<!-- ======================= ③ any 传染 ======================= -->
+<div class="panel" id="panel-any">
+  <div class="card">
+    <h2>操作台</h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="op" id="btnAnyOn">引入 any ▶</button>
+      <button class="op" id="btnUnknown">改用 unknown ▶</button>
+      <button class="op" id="btnAnyReset">重置 ↺</button>
+    </div>
+    <p class="desc" style="margin-top:8px;">场景：读取外部 JSON 配置（对应示例 03 的真实代码）。点「引入 any」后从上往下看每个节点发生了什么；「改用 unknown」看同一个链条在哪一步被拦住。</p>
+  </div>
+  <div class="card" id="anyChain"></div>
+  <div class="card">
+    <p class="desc" id="anySummary">（还没有操作）</p>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================ ① 类型擦除演示器 ============================ */
+/* 每行由若干片段组成：{t: 文本, k: 'code'|'type'|'runtime'} */
+var SEGS = [
+  {
+    name: 'A · 变量与函数标注（示例 01）',
+    lines: [
+      [{ t: 'const productName' }, { t: ': string', k: 'type' }, { t: " = '机械键盘';" }],
+      [{ t: 'const price' }, { t: ': number', k: 'type' }, { t: ' = 299;' }],
+      [{ t: 'function withTax(amount' }, { t: ': number', k: 'type' }, { t: ', rate' }, { t: ': number', k: 'type' }, { t: ')' }, { t: ': number', k: 'type' }, { t: ' {' }],
+      [{ t: '  return amount * (1 + rate);' }],
+      [{ t: '}' }]
+    ],
+    out: "const productName = '机械键盘';\nconst price = 299;\nfunction withTax(amount, rate) {\n  return amount * (1 + rate);\n}",
+    explain: '所有 ": 类型" 消失，其余一字不差——这就是类型擦除：类型只服务于编译期检查，不进入运行时。对照示例 01 的真实产物完全一致。'
+  },
+  {
+    name: 'B · type 定义整段消失',
+    lines: [
+      [{ t: 'type Product = {', k: 'type' }],
+      [{ t: '  id: number;', k: 'type' }],
+      [{ t: '  name: string;', k: 'type' }],
+      [{ t: '};', k: 'type' }],
+      [{ t: 'const p' }, { t: ': Product', k: 'type' }, { t: " = { id: 1, name: '机械键盘' };" }]
+    ],
+    out: "const p = { id: 1, name: '机械键盘' };",
+    explain: 'type / interface 是"纯类型"结构，只活在编译期——产物里连一行都不剩。想在运行时保留结构信息，要用 class、enum 或普通对象常量。'
+  },
+  {
+    name: 'C · interface 消失，enum 保留（本机实测产物）',
+    lines: [
+      [{ t: 'interface Shape { area(): number; }', k: 'type' }],
+      [{ t: 'enum Color { Red, Green }', k: 'runtime' }],
+      [{ t: 'const c' }, { t: ': Color', k: 'type' }, { t: ' = Color.Green;' }],
+      [{ t: 'const s' }, { t: ': Shape', k: 'type' }, { t: ' = { area: () => 1 };' }]
+    ],
+    out: 'var Color;\n(function (Color) {\n    Color[Color["Red"] = 0] = "Red";\n    Color[Color["Green"] = 1] = "Green";\n})(Color || (Color = {}));\nconst c = Color.Green;\nconst s = { area: () => 1 };',
+    explain: '关键对照：interface（黄色）整行消失；enum（绿色）不但保留，还"展开"成一段真实代码——enum 有运行时行为（生成真实的对象 Color，且 0↔"Red" 双向映射），所以它不被擦除。运行 Color[1] 实测得到 "Green"。'
+  }
+];
+var eraseState = { seg: 0, compiled: false };
+
+function renderSeg() {
+  var seg = SEGS[eraseState.seg];
+  var box = document.getElementById('srcBox');
+  box.innerHTML = seg.lines.map(function (line) {
+    return line.map(function (p) {
+      return '<span class="tk' + (p.k ? ' ' + p.k : '') + '">' + escapeHtml(p.t) + '</span>';
+    }).join('');
+  }).join('\n');
+  document.getElementById('outBox').textContent = eraseState.compiled ? seg.out : '（点「编译 ▶」后出现）';
+  document.getElementById('segTitle').textContent = '';
+  document.getElementById('segExplain').textContent = eraseState.compiled ? seg.explain : '先看左边源码：黄色是类型标注。点「编译 ▶」把它们擦掉，右边就是产物。';
+}
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function doCompile() {
+  var seg = SEGS[eraseState.seg];
+  eraseState.compiled = true;
+  /* 类型片段逐个划掉（带级联动画感） */
+  var marks = document.querySelectorAll('#srcBox .tk.type');
+  marks.forEach(function (el, i) {
+    setTimeout(function () { el.classList.add('erased'); }, i * 180);
+  });
+  setTimeout(function () {
+    document.getElementById('outBox').textContent = seg.out;
+    document.getElementById('segExplain').textContent = seg.explain;
+  }, marks.length * 180 + 200);
+}
+
+/* ============================ ② 检查时机对比 ============================ */
+var PHASE_CARDS = [
+  {
+    lang: 'Java',
+    code: 'String input = "25";\nint age = input + 1;',
+    run: function () { return { badge: '编译期拦截', cls: 'block', text: 'javac 报错：\nincompatible types: String cannot be converted to int\n——程序根本没机会跑起来' }; }
+  },
+  {
+    lang: 'JavaScript',
+    code: "const input = '25';\nconst age = input + 1;\nconsole.log(age);",
+    run: function () { return { badge: '静默错值', cls: 'silent', text: "输出：251\n（字符串拼接！不报错、不崩溃，错值一路传下去）——运行时都不拦" }; }
+  },
+  {
+    lang: 'TypeScript（input 标注 number）',
+    code: "const input: number = getUserInput();\n// getUserInput() 声明返回 number，但实际传来了 '25'\nconst age = input + 1;",
+    run: function () { return { badge: '编译期拦截', cls: 'block', text: "error TS2322: Type 'string' is not assignable to type 'number'\n——和 Java 同一道防线，跑起来之前就拦下" }; }
+  },
+  {
+    lang: 'TypeScript 的边界（外部数据）',
+    code: "const data: User = JSON.parse('{\"age\":\"25\"}');\nconsole.log(data.age + 1);",
+    run: function () { return { badge: '编译期放行，运行时露馅', cls: 'silent', text: "JSON.parse 返回 any → 标注 : User 只是「担保」，运行时 data.age 实际是 '25'\n输出：'251'\n——类型是标注不是保证，外部数据要运行时校验（Zod 等）" }; }
+  }
+];
+function renderPhase() {
+  var host = document.getElementById('phaseCards');
+  host.innerHTML = PHASE_CARDS.map(function (c, i) {
+    return '<div class="card" style="margin-bottom:0;">'
+      + '<h2>' + c.lang + '</h2>'
+      + '<pre class="src">' + escapeHtml(c.code) + '</pre>'
+      + '<div style="margin-top:8px;"><button class="op" data-phase="' + i + '">运行 ▶</button></div>'
+      + '<div class="result" id="phaseResult' + i + '" style="display:none;"></div>'
+      + '</div>';
+  }).join('');
+}
+
+/* ============================ ③ any 传染实验 ============================ */
+var ANY_NODES = [
+  { code: "const config = JSON.parse('{...}')", note: '源头：外部数据。JSON.parse 的返回类型就是 any——"外面来的东西"天然无类型。', err: '' },
+  { code: 'config.prt   // 手一抖拼错了', note: 'any 放行：编译期不报错。', err: '' },
+  { code: "const portText: string = config.port", note: 'any 传染：把 3306（number）塞进了 string 标注，照样不报错。', err: '' },
+  { code: 'console.log(portText + 1)', note: '静默错值：实测输出 3307。": string" 标注形同虚设。', err: '' }
+];
+var UNKNOWN_BLOCK = {
+  at: 2,
+  code: "const config: unknown = JSON.parse('{...}')",
+  err: "error TS18046: 'config' is of type 'unknown'",
+  note: 'unknown = "我知道我不知道"：不许直接用，必须先收窄（typeof / 校验库），否则编译期报错——防线在这里停住了。'
+};
+var anyState = { mode: 'init', timers: [] };
+
+function renderAny() {
+  anyState.timers.forEach(clearTimeout);
+  anyState.timers = [];
+  var host = document.getElementById('anyChain');
+  var nodes = ANY_NODES.slice();
+  if (anyState.mode === 'unknown') { nodes[1] = { code: UNKNOWN_BLOCK.code, note: UNKNOWN_BLOCK.note, err: UNKNOWN_BLOCK.err }; }
+  host.innerHTML = nodes.map(function (n, i) {
+    return '<div class="node" id="anyNode' + i + '"><code>' + escapeHtml(n.code) + '</code>'
+      + '<div class="note">' + n.note + '</div>'
+      + (n.err ? '<div class="err">' + escapeHtml(n.err) + '</div>' : '')
+      + '</div>' + (i < nodes.length - 1 ? '<div class="arrow">↓</div>' : '');
+  }).join('');
+  document.getElementById('anySummary').textContent = anyState.mode === 'init' ? '（还没有操作）' : '';
+}
+function runAnyCascade() {
+  renderAny();
+  document.getElementById('anySummary').innerHTML = 'any 传播中：每一行都没报错，错误一路到达输出。<b>编译期全线无感，这正是 any 的危险——不是它报错，而是它不报错。</b>';
+  ANY_NODES.forEach(function (_, i) {
+    anyState.timers.push(setTimeout(function () {
+      document.getElementById('anyNode' + i).classList.add('infected');
+    }, 300 + i * 450));
+  });
+}
+function runUnknownGuard() {
+  anyState.mode = 'unknown';
+  renderAny();
+  /* 第 1 个节点（unknown 声明）标绿，第 2 个节点开始被拦 */
+  setTimeout(function () { document.getElementById('anyNode0').classList.add('guarded'); }, 200);
+  setTimeout(function () { document.getElementById('anyNode1').classList.add('guarded'); }, 700);
+  document.getElementById('anySummary').innerHTML = '改成 <code>unknown</code> 后：节点 1 变成"受控入口"（不许直接用）；到节点 2 直接<b>编译期报错 TS18046</b>，后面两行根本写不出来——把"运行时静默错值"提前成"编译期红灯"。收窄方式（typeof / 校验库）在后续知识点展开。';
+}
+
+/* ============================ 初始化 ============================ */
+function init() {
+  var btns = document.querySelectorAll('.tab-btn');
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn, .panel').forEach(function (el) { el.classList.remove('active'); });
+      b.classList.add('active');
+      document.getElementById('panel-' + b.dataset.tab).classList.add('active');
+    });
+  });
+  var sel = document.getElementById('segSelect');
+  SEGS.forEach(function (sg, i) {
+    var o = document.createElement('option');
+    o.value = i; o.textContent = sg.name;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', function () { eraseState = { seg: +this.value, compiled: false }; renderSeg(); });
+  document.getElementById('btnCompile').addEventListener('click', doCompile);
+  document.getElementById('btnEraseReset').addEventListener('click', function () { eraseState.compiled = false; renderSeg(); });
+  renderPhase();
+  document.querySelectorAll('[data-phase]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var r = PHASE_CARDS[+this.dataset.phase].run();
+      var box = document.getElementById('phaseResult' + this.dataset.phase);
+      box.style.display = 'block';
+      box.innerHTML = '<span class="badge ' + r.cls + '">' + r.badge + '</span>\n' + escapeHtml(r.text);
+    });
+  });
+  document.getElementById('btnAnyOn').addEventListener('click', function () { anyState.mode = 'any'; runAnyCascade(); });
+  document.getElementById('btnUnknown').addEventListener('click', runUnknownGuard);
+  document.getElementById('btnAnyReset').addEventListener('click', function () { anyState.mode = 'init'; renderAny(); });
+  renderSeg();
+  renderAny();
+}
+init();
+</script>
+</body>
+</html>
