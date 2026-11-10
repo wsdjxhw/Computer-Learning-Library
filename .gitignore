@@ -6,8 +6,9 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Claude Code 本地会话目录
-.claude/
+# Claude Code 本地会话目录（项目级技能除外——入库共享，见 .claude/skills/learn_by_h/）
+.claude/*
+!.claude/skills/
 
 # 本地一次性验证用 MySQL 临时实例（见 后端/数据库/MySQL/ 各知识详解）
 .mysql-test/
@@ -15,3 +16,5 @@ Thumbs.db
 # 通用临时文件
 *.tmp
 *.log
+.claude/skills/learn_by_h/SKILL.md
+.claude/skills/learn_by_h/agents/openai.yaml
