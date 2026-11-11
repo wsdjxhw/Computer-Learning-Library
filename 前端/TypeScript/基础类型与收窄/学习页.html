@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基础类型与收窄 · 学习页</title>
+<style>
+  :root {
+    --bg: #f5f7fb; --card: #fff; --ink: #172033; --muted: #5d687a; --line: #dfe5ee;
+    --accent: #2457c5; --accent-dark: #183f91; --accent-soft: #edf3ff;
+    --ok: #16734a; --ok-soft: #edf9f2; --bad: #b42318; --bad-soft: #fff1f0;
+    --warn-bg: #fff8e7; --warn-line: #e7c66d;
+    --code-bg: #142033; --code-ink: #e6edf7; --kw: #93c5fd; --str: #fdba74; --com: #a7b5c9; --num: #f9a8d4;
+    --typechip: #ede9fe; --typeink: #5b21b6; --shadow: 0 12px 34px rgba(23,32,51,.07);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; font-size: 16px; line-height: 1.8; background: var(--bg); color: var(--ink); }
+  button, input, textarea { font: inherit; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #8fb3ff; outline-offset: 3px; }
+  .skip-link { position: fixed; left: 16px; top: -80px; z-index: 100; padding: 8px 14px; background: #fff; border: 2px solid var(--accent); border-radius: 8px; }
+  .skip-link:focus { top: 12px; }
+
+  .topbar { position: sticky; top: 0; z-index: 30; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--line); backdrop-filter: blur(10px); }
+  .topbar .row { max-width: 1180px; min-height: 62px; margin: 0 auto; padding: 9px 24px; display: flex; align-items: center; gap: 16px; }
+  .topbar-title { font-weight: 700; white-space: nowrap; }
+  .progress-wrap { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 10px; color: var(--muted); font-size: 13px; }
+  .progress-track { width: min(190px, 20vw); height: 7px; background: #e8edf5; border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+  #progressText, #readProgressText { white-space: nowrap; }
+  .op { min-height: 38px; padding: 6px 13px; border: 1px solid var(--line); color: var(--ink); background: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .op:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .op.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .op.primary:hover { background: var(--accent-dark); color: #fff; }
+  .op.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .op[aria-pressed="true"] { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+  .storage-note { max-width: 1180px; margin: 0 auto; padding: 6px 24px; color: #875b08; font-size: 13px; }
+
+  .hero { max-width: 1180px; margin: 0 auto; padding: 50px 24px 24px; }
+  .hero-card { position: relative; overflow: hidden; padding: 38px 42px; border: 1px solid var(--line); border-radius: 22px; background: var(--card); box-shadow: var(--shadow); }
+  .hero-card:after { content: ""; position: absolute; right: -80px; top: -110px; width: 290px; height: 290px; border-radius: 50%; background: var(--accent-soft); pointer-events: none; }
+  .eyebrow { position: relative; margin: 0 0 8px; color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+  h1 { position: relative; margin: 0 0 14px; font-size: clamp(30px,5vw,46px); line-height: 1.25; letter-spacing: -.02em; }
+  .hero-lead { position: relative; max-width: 800px; margin: 0 0 18px; color: var(--muted); font-size: 18px; }
+  .meta { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .meta span { padding: 3px 10px; border: 1px solid var(--line); border-radius: 99px; background: #f8fafc; color: var(--muted); font-size: 13px; }
+  .objectives-title { position: relative; margin: 12px 0 4px; font-size: 16px; }
+  .objectives { position: relative; max-width: 820px; margin: 0; padding: 14px 20px 14px 42px; border-radius: 12px; background: var(--accent-soft); }
+  .howto { position: relative; margin: 18px 0 0; color: var(--muted); font-size: 14px; }
+  .resume { max-width: 820px; margin: 16px auto 0; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #bfd0f2; border-radius: 12px; background: var(--accent-soft); }
+  .resume[hidden] { display: none; }
+  .mobile-nav { display: none; margin: 0 16px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+  .mobile-nav summary { padding: 10px 14px; cursor: pointer; font-weight: 700; }
+  .mobile-nav nav { padding: 0 12px 12px; }
+  .mobile-nav a { display: block; padding: 7px 9px; border-radius: 7px; color: var(--muted); text-decoration: none; font-size: 14px; }
+  .mobile-nav a.active { background: var(--accent-soft); color: var(--accent); }
+
+  .layout { max-width: 1180px; margin: 0 auto; padding: 10px 24px 70px; display: grid; grid-template-columns: 215px minmax(0,1fr); gap: 32px; align-items: start; }
+  nav.side { position: sticky; top: 86px; max-height: calc(100vh - 108px); overflow-y: auto; padding: 10px 0; }
+  .side-title { margin: 0 10px 8px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+  nav.side a { display: block; padding: 8px 10px; border-left: 3px solid transparent; color: var(--muted); text-decoration: none; font-size: 14px; line-height: 1.5; }
+  nav.side a:hover, nav.side a.active { background: var(--accent-soft); color: var(--accent); }
+  nav.side a.active { border-left-color: var(--accent); font-weight: 700; }
+  nav.side a.done:after { content: "已读"; float: right; color: var(--ok); font-size: 11px; font-weight: 400; }
+  main { width: 100%; max-width: 850px; min-width: 0; }
+  section.card { padding: 32px 0 36px; margin: 0; border-bottom: 1px solid var(--line); background: transparent; scroll-margin-top: 88px; }
+  section.card > h2 { margin: 0 0 10px; color: var(--ink); font-size: 28px; line-height: 1.4; }
+  section.card > .lead { margin: 0 0 18px; color: var(--muted); font-size: 17px; }
+  .chapter-goal { margin: 18px 0 22px; padding: 12px 16px; border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; background: var(--accent-soft); }
+  h3 { margin: 28px 0 8px; font-size: 21px; line-height: 1.5; }
+  h4 { margin: 20px 0 6px; font-size: 17px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 16px; padding-left: 24px; }
+  li + li { margin-top: 5px; }
+  .table-wrap { margin: 16px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { padding: 10px 13px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { background: #f8fafc; }
+  tr:last-child td { border-bottom: 0; }
+  code { background: #eaf0f8; border-radius: 5px; padding: 2px 5px; font-family: Consolas, monospace; font-size: .9em; }
+  .code-block { position: relative; margin: 16px 0; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 12px; padding: 18px; font-size: 14px; line-height: 1.75; font-family: Consolas, monospace; overflow-x: auto; white-space: pre; margin: 0; }
+  pre code { padding: 0; background: transparent; color: inherit; font: inherit; }
+  .copy-code { position: absolute; right: 9px; top: 9px; z-index: 2; border-color: #536177; background: #223149; color: #fff; }
+  .copy-code:hover { background: #34445f; color: #fff; }
+  .c-kw { color: var(--kw); } .c-str { color: var(--str); } .c-com { color: var(--com); font-style: italic; } .c-num { color: var(--num); }
+  .tchip { display: inline-block; background: var(--typechip); color: var(--typeink); border-radius: 6px; padding: 1px 7px; font-family: Consolas, monospace; font-size: 13px; }
+  .note, .warn, .takeaway { margin: 18px 0; padding: 14px 17px; border-radius: 10px; }
+  .note { border: 1px solid #c9d9f7; background: var(--accent-soft); }
+  .warn { border: 1px solid #f0c5c0; background: var(--bad-soft); }
+  .takeaway { border: 1px solid #bfe2d0; background: var(--ok-soft); }
+  .takeaway strong { color: var(--ok); }
+  details.deep, details.answer { border: 1px solid var(--line); border-radius: 10px; padding: 10px 15px; margin: 16px 0; background: #fff; }
+  details.deep summary, details.answer summary { cursor: pointer; color: var(--accent); font-weight: 700; }
+  details.deep .body, details.answer .body { padding-top: 10px; }
+  details.answer { border-color: #bfe2d0; background: var(--ok-soft); }
+  details.answer summary { color: var(--ok); }
+  figure.fig { margin: 20px 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+  figure.fig svg { max-width: 100%; height: auto; display: block; margin: auto; }
+  figure.fig figcaption { font-size: 14px; color: var(--muted); text-align: center; margin-top: 10px; }
+
+  .ops { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .demo-box { margin: 18px 0; padding: 20px; border: 1px solid #c9d9f7; border-radius: 14px; background: #fff; }
+  .step { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; margin: 10px 0; background: #fff; flex-wrap: wrap; }
+  .step code.line { flex-shrink: 0; }
+  .step .arrow-t { color: var(--muted); }
+  .step .note-s { color: var(--muted); font-size: 14px; }
+  .step-count { color: var(--accent); font-size: 13px; font-weight: 700; }
+  .lanes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .lane { flex: 1 1 210px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: #fff; }
+  .lane.hit { border-color: var(--ok); box-shadow: 0 0 0 2px #bbf7d0; background: var(--ok-soft); }
+  .lane.err { border-color: var(--bad); box-shadow: 0 0 0 2px #fecaca; background: var(--bad-soft); }
+  .lane h4 { margin-top: 0; font-size: 15px; }
+  .lane .errbox { font-family: Consolas, monospace; font-size: 12px; color: var(--bad); background: #fee2e2; border-radius: 6px; padding: 8px; margin-top: 8px; }
+
+  .checkpoint { margin: 20px 0; padding: 18px; border: 1px solid #c9d9f7; border-radius: 14px; background: var(--accent-soft); }
+  .checkpoint:before { content: "即时检验 · 先预测再看解析"; display: block; margin-bottom: 8px; color: var(--accent); font-size: 13px; font-weight: 700; }
+  .checkpoint .quiz { margin: 0; }
+  .ex, .quiz { border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin: 16px 0; background: #fff; }
+  .ex h4 { margin-top: 0; font-size: 18px; }
+  .ex .task { line-height: 1.8; }
+  .ex label { display: block; margin: 12px 0 6px; font-weight: 700; }
+  .ex textarea { width: 100%; height: 180px; font-family: Consolas, monospace; font-size: 14px; line-height: 1.7; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--code-bg); color: var(--code-ink); resize: vertical; }
+  .draft-status { color: var(--muted); font-size: 13px; }
+  .quiz .stem { line-height: 1.8; margin-bottom: 10px; }
+  .quiz .status { float: right; font-size: 12px; padding: 2px 10px; border-radius: 999px; background: #f3f4f6; color: var(--muted); }
+  .quiz .status.ok { background: var(--ok-soft); color: var(--ok); }
+  .quiz .status.bad { background: var(--bad-soft); color: var(--bad); }
+  .opt { display: block; width: 100%; text-align: left; margin: 7px 0; padding: 10px 13px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); cursor: pointer; font-size: 16px; line-height: 1.6; }
+  .opt:hover { border-color: var(--accent); }
+  .opt.right { border-color: var(--ok); background: var(--ok-soft); }
+  .opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+  .opt input { margin-right: 7px; }
+  .blank-input { max-width: 100%; padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; font-family: Consolas, monospace; font-size: 15px; width: 220px; }
+  .explain { display: none; margin-top: 12px; background: #f8fafc; border-left: 4px solid var(--accent); border-radius: 0 9px 9px 0; padding: 12px 14px; }
+  .explain.show { display: block; }
+  .explain a { display: inline-block; margin-top: 6px; font-size: 14px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .section-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 24px; }
+  .section-actions a { font-size: 14px; }
+  .recall details { margin: 10px 0; padding: 10px 15px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .recall summary { cursor: pointer; font-weight: 700; }
+  .recall details p { margin: 10px 0 0; }
+  .back-top { position: fixed; right: 20px; bottom: 20px; z-index: 20; box-shadow: var(--shadow); }
+  .page-footer { max-width: 850px; margin: 0 auto 50px; padding: 0 24px; color: var(--muted); font-size: 14px; }
+
+  @media (max-width: 900px) {
+    .topbar .row { padding: 8px 16px; gap: 10px; }
+    .topbar-title { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; }
+    .progress-track { display: none; }
+    .hero { padding: 26px 16px 14px; }
+    .hero-card { padding: 26px 22px; border-radius: 16px; }
+    .hero-lead { font-size: 16px; }
+    .layout { display: block; padding: 0 16px 50px; }
+    nav.side { display: none; }
+    .mobile-nav { display: block; }
+    main { max-width: none; }
+    section.card { padding: 26px 0 30px; scroll-margin-top: 76px; }
+    section.card > h2 { font-size: 25px; }
+    .resume { margin: 12px 16px 0; align-items: flex-start; flex-direction: column; }
+    .back-top { right: 12px; bottom: 12px; }
+  }
+  @media (max-width: 620px) {
+    .topbar-title { display: none; }
+    .progress-wrap { justify-content: flex-start; flex-wrap: wrap; gap: 6px 10px; }
+    #btnResetProgress, #btnResetRead { min-height: 32px; padding: 3px 8px; font-size: 12px; }
+    .section-actions { align-items: flex-start; flex-direction: column; }
+    .demo-box, .ex, .quiz, .checkpoint { padding: 15px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *:before, *:after { transition: none !important; animation: none !important; }
+  }
+  @media print {
+    body { background: #fff; font-size: 12pt; }
+    .topbar, nav.side, .mobile-nav, .resume, .back-top, .section-actions, .ops, .copy-code, button { display: none !important; }
+    .hero, .layout { display: block; max-width: none; padding: 0; }
+    .hero-card { padding: 0 0 18px; border: 0; box-shadow: none; }
+    .hero-card:after { display: none; }
+    main { max-width: none; }
+    section.card { padding: 18px 0; }
+    pre, figure, .demo-box, .quiz { break-inside: avoid; }
+    pre { white-space: pre-wrap; color: #000; background: #f4f4f4; }
+    .explain { display: block; }
+    a { color: #000; }
+  }
+</style>
+</head>
+<body data-tsnav="basic-types" data-page-id="ts-basic-narrowing">
+<a class="skip-link" href="#mainContent">跳到正文</a>
+
+<header class="topbar">
+  <div class="row">
+    <div class="topbar-title">基础类型与收窄</div>
+    <div class="progress-wrap">
+      <span id="readProgressText" aria-live="polite">章节：0 / 9</span>
+      <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="readProgressFill"></div></div>
+      <span id="progressText">练习：0 对 / 0 已做 / 共 8</span>
+      <button class="op" id="btnResetRead" type="button">重置阅读</button>
+      <button class="op" id="btnResetProgress" type="button">重置练习</button>
+    </div>
+  </div>
+</header>
+<p class="storage-note" id="storageNote" hidden>当前浏览器无法持久保存记录；本次打开期间仍可正常学习和练习。</p>
+
+<section class="hero" aria-labelledby="pageTitle">
+  <div class="hero-card">
+    <p class="eyebrow">TYPESCRIPT · 第 3 课</p>
+    <h1 id="pageTitle">基础类型与收窄</h1>
+    <p class="hero-lead">从「一个值可能有多种类型」出发，学会让编译器沿着代码路径逐层排除可能性，最终安全地使用每一种值。</p>
+    <div class="meta"><span>前置：JavaScript 基础</span><span>对照：Java 类型体系</span><span>方式：讲解 + 演示 + 真实报错</span></div>
+    <h2 class="objectives-title">学完你能做到</h2>
+    <ol class="objectives">
+      <li>解释原始类型、联合类型与收窄之间的关系。</li>
+      <li>根据值的形态选择 typeof、相等性、in、instanceof 或判别联合。</li>
+      <li>用 unknown 接收外部数据，并用 never 检查 switch 是否穷尽。</li>
+      <li>写出可通过 <code>tsc --strict</code> 验证的最小类型安全代码。</li>
+    </ol>
+    <p class="howto"><strong>推荐学法：</strong>每节先看「本节目标」，读完立即完成短检验；「深挖」按需展开。互动演示是教学模拟，真实结论以配套代码的本机运行结果为准。</p>
+  </div>
+  <div class="resume" id="resumeBar" hidden>
+    <span id="resumeText">检测到上次学习记录。</span>
+    <button class="op primary" id="btnResume" type="button">继续上次学习</button>
+  </div>
+</section>
+<details class="mobile-nav">
+  <summary>本页目录与学习状态</summary>
+  <nav id="mobileToc" aria-label="移动端章节目录"></nav>
+</details>
+
+<div class="layout">
+  <nav class="side" aria-label="章节目录">
+    <p class="side-title">本页目录</p>
+    <div id="desktopToc">
+      <a href="#sec-1">1 · 原始类型 / 数组 / 元组</a>
+      <a href="#sec-2">2 · 字面量类型与联合</a>
+      <a href="#sec-3">3 · 收窄六式 + 追踪器</a>
+      <a href="#sec-4">4 · 判别联合 + 路由图</a>
+      <a href="#sec-5">5 · unknown 与 never</a>
+      <a href="#sec-6">6 · 常见误区</a>
+      <a href="#sec-7">7 · 动手练习</a>
+      <a href="#sec-8">8 · 综合闯关</a>
+      <a href="#sec-9">9 · 回忆与迁移</a>
+    </div>
+  </nav>
+
+  <main id="mainContent">
+
+  <!-- ============ 1 ============ -->
+  <section class="card" data-learning-section id="sec-1">
+    <h2>1 · 原始类型、数组与元组</h2>
+    <p class="lead">类型系统的字母表。TS 的原始类型关键字比 Java 少一半——因为 JS 只有一种数字、没有 char。先把地基打准，后面的收窄才不会踩空。</p>
+    <div class="chapter-goal"><strong>本节目标：</strong>能区分数组与元组，解释 number、null、undefined 的关键边界，并选出正确的类型标注。</div>
+
+    <h3>1.1 三大件：string / number / boolean</h3>
+    <p><b>number 一个类型管所有数</b>。Java 里 byte/short/int/long/float/double 六兄弟各管一段，TS 里全是 <code>number</code>——这不是偷懒，是历史：JS 1995 年设计时（Brendan Eich 著名的 10 天）选了 IEEE 754 双精度浮点一统天下，整数小数在内存里是同一种东西；TS 是 JS 的类型层，只能继承这个事实。代价是<b>整数小数不分家</b>：</p>
+    <pre id="code-num"></pre>
+    <p>算钱的铁律：先乘到整数分运算，展示时再 <code>toFixed(2)</code>；浮点比较永远用误差范围而不是 <code>===</code>。超过安全整数范围的大数（订单号、雪花 ID）用 <code>bigint</code> 或干脆 <code>string</code>——见本节深挖。</p>
+    <p><b>string 不可变</b>，和 Java 的 <code>String</code> 完全一样：<code>trim()</code>、<code>replace()</code> 都返回新串，原串不动。TS <b>没有 char</b>：单字符就是长度为 1 的 string（Java 里 <code>'a'</code> 是 char、<code>"a"</code> 是 String，TS 里只有 <code>'a'</code>）。</p>
+    <p><b>boolean 只有两个值</b>。注意划清界限：truthy/falsy 是「在条件位置当真当假」的强制转换规则，跟 boolean 类型无关——<code>0</code> 不是 boolean，但它是 falsy。这个区别在第 3 节真值收窄里会反复出现。</p>
+
+    <h3>1.2 两个空：null 与 undefined</h3>
+    <p>JS 地基里讲过运行时分工，TS 把它们当成<b>两个不同的类型</b>，并且 strict 模式下不再是谁都能塞的默认值（<code>strictNullChecks</code>，包含在 <code>--strict</code> 里）：</p>
+    <pre id="code-nulluv"></pre>
+    <table>
+      <tr><th></th><th>undefined</th><th>null</th></tr>
+      <tr><td>语义</td><td>「从来没有」：未赋值 / 没传参 / 没有这个属性</td><td>「现在没有」：明确置空，人为表示无数据</td></tr>
+      <tr><td>谁产生</td><td>语言自动（漏赋值就是它）</td><td>只有你手写才会出现</td></tr>
+      <tr><td>TS 态度</td><td colspan="2">strict 下都不可赋给其他类型；可空必须显式写进联合（string | null）</td></tr>
+    </table>
+    <p>「可空要显式写进联合」这一条，就是后面所有收窄故事的起点——类型系统先把可能性<b>说全</b>，代码里再一层层<b>证明排除</b>。</p>
+
+    <h3>1.3 数组与元组</h3>
+    <pre id="code-tuple"></pre>
+    <p>要点：数组两种写法完全等价，元素同型、<b>长度不进类型</b>（对照 Java：数组定长，<code>String[3]</code> 就是 3 个）；元组<b>定长 + 每位定类型 + 顺序敏感</b>，适合「固定搭配的一组值」（坐标对、键值对、CSV 的一行）；带标签元组把含义写进类型，读代码不用背下标。</p>
+
+    <details class="deep"><summary>深挖 · 为什么没有 int？安全整数边界 2^53</summary>
+      <div class="body">
+        <p>IEEE 754 双精度用 52 位尾数 + 1 位隐含位存整数，所以能精确表示的整数上限是 2^53 − 1 = <code>Number.MAX_SAFE_INTEGER</code> = 9007199254740991。再往上相邻整数会「粘住」（本机 node 实测）：</p>
+        <pre>9007199254740992 === 9007199254740993   // true —— 两个都舍入到 2^53，判重失真</pre>
+        <p>后果：大整数 ID 一旦当 number 处理，去重/比较会悄悄出错。工程惯例：后端把大数序列化成字符串，前端用 <code>string</code> 接；真要运算用 <code>bigint</code>（字面量带 n：<code>9007199254740993n</code>，<code>typeof</code> 是 <code>'bigint'</code>，与 number 不能直接混算）。</p>
+      </div>
+    </details>
+    <div class="checkpoint" data-checkpoint="q1"></div>
+    <div class="takeaway"><strong>本节记住：</strong>number 同时表示整数和小数；可空必须显式写进联合；数组不固定长度，元组固定每个位置的类型。</div>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section class="card" data-learning-section id="sec-2">
+    <h2>2 · 字面量类型与联合类型</h2>
+    <p class="lead">TS 表达力的第一个来源：类型可以不只是「类名」，还可以是「具体的值」和「值的组合」。这一节两个概念，撑起后面所有的建模。</p>
+    <div class="chapter-goal"><strong>本节目标：</strong>能解释「值域是并集、可访问成员是交集」，并判断 const 与 let 的字面量推导差异。</div>
+
+    <h3>2.1 字面量类型：把值本身当类型</h3>
+    <p><code>'asc'</code>、<code>0</code>、<code>true</code> 这种<b>具体的值</b>也能当类型——此时合法取值只有这一个。单个字面量类型没什么用，威力在它参与联合之后：约束一组合法取值，<b>比 Java enum 更轻</b>（回想初识 TypeScript：enum 是唯一有运行时产物的例外，字面量联合编译后零残留），拼错立刻编译期现形，IDE 还能自动补全。</p>
+
+    <h3>2.2 联合类型：值域的「或」</h3>
+    <p><code>A | B</code> 读作「A 或 B」，值域是两者的并集。业务里最常见三种：<code>string | null</code>（可能没有）、<code>'asc' | 'desc'</code>（枚举取值）、<code>Fish | Bird</code>（形状分岔，第 4 节主角）。联合可以嵌套并自动摊平：<code>(A | B) | C</code> 就是 <code>A | B | C</code>。</p>
+
+    <h3>2.3 联合上只能访问共有成员</h3>
+    <pre id="code-lit"></pre>
+    <p>规则为什么这么定：编译器必须保证「这行代码在<b>任何一种可能下</b>都成立」。<code>toString()</code> 两种类型都有，放行；<code>trim()</code> 只有 string 有，万一进来的是 number 就崩了——所以 TS2339 拦下。想让编译器知道「现在只剩一种可能」，就是下一节的主角：<b>收窄</b>。</p>
+
+    <figure class="fig">
+      <svg viewBox="0 0 640 330" role="img" aria-label="联合 string 与 number 的值域是两个圆的并集，可用成员只是中间的交集：独有方法 trim、toFixed 被拦下，共有方法 toString 放行">
+        <circle cx="235" cy="170" r="110" fill="#dbeafe" fill-opacity="0.55" stroke="#64748b"></circle>
+        <circle cx="405" cy="170" r="110" fill="#dcfce7" fill-opacity="0.55" stroke="#64748b"></circle>
+        <text x="172" y="116" font-size="14" font-weight="bold" text-anchor="middle" fill="#1e40af">string</text>
+        <text x="468" y="116" font-size="14" font-weight="bold" text-anchor="middle" fill="#166534">number</text>
+        <text x="175" y="168" font-size="11.5" text-anchor="middle" fill="#6b7280">独有</text>
+        <text x="175" y="186" font-size="11.5" text-anchor="middle" fill="#1f2937">trim() length()</text>
+        <text x="465" y="168" font-size="11.5" text-anchor="middle" fill="#6b7280">独有</text>
+        <text x="465" y="186" font-size="11.5" text-anchor="middle" fill="#1f2937">toFixed()</text>
+        <text x="320" y="168" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#15803d">共有</text>
+        <text x="320" y="186" font-size="11.5" text-anchor="middle" fill="#15803d">✓ toString()</text>
+        <rect x="70" y="296" width="12" height="12" rx="2" fill="#fef2f2" stroke="#dc2626"></rect>
+        <text x="88" y="306" font-size="12" fill="#1f2937">✗ 独有方法：联合上直接调 → TS2339</text>
+        <rect x="400" y="296" width="12" height="12" rx="2" fill="#f0fdf4" stroke="#16a34a"></rect>
+        <text x="418" y="306" font-size="12" fill="#1f2937">✓ 共有方法：直接用</text>
+      </svg>
+      <figcaption>图 2-1 · 联合 string | number：值域是并集（两圆全部），可用成员是交集（中间重叠）——独有方法被 TS2339 拦下，这正是需要收窄的原因</figcaption>
+    </figure>
+
+    <details class="deep"><summary>深挖 · 字面量拓宽（widening）：let 和 const 推导为什么不一样？</summary>
+      <div class="body">
+        <p><code>const dir = 'asc'</code> 推导为 <span class="tchip">'asc'</span>（const 不会再改，类型可以精确到值）；<code>let dir2 = 'asc'</code> 推导为 <span class="tchip">string</span>——let 可能被重新赋值，TS 故意把字面量「拓宽」成通用类型，否则 <code>dir2 = 'desc'</code> 就报错了。</p>
+        <p>想要 let 也锁死取值：显式标注 <code>let dir3: 'asc' | 'desc' = 'asc'</code>。这就是「枚举式取值要手写联合」的底层原因。另一个方向（把已有值锁成字面量）是 <code>as const</code> 断言，在知识点 ⑤「类型推导与断言」细讲。</p>
+      </div>
+    </details>
+    <div class="takeaway"><strong>本节记住：</strong>联合描述的是所有可能值，因此未收窄前只能使用所有成员都具备的共有成员。</div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section class="card" data-learning-section id="sec-3">
+    <h2>3 · 收窄六式</h2>
+    <p class="lead">联合类型只是「声明了所有可能」；<b>收窄（narrowing）</b>是编译器沿着控制流，逐行证明「走到这一行，值只可能是哪几种」。前五式是现成的判断手段，第六式是主动建模。Java 里你手写 instanceof + 强转的活，TS 沿代码路径自动推。</p>
+    <div class="chapter-goal"><strong>本节目标：</strong>看到联合成员的形态，能选出合适的收窄方式，并逐行说出判断前后的类型。</div>
+
+    <figure class="fig">
+      <svg viewBox="0 0 720 280" role="img" aria-label="收窄全貌：x 从 string、number、null 三种可能出发，经 if x===null 分流掉 null，再经 typeof 分流，最终每条路径只剩一种类型，可用的方法随之确定">
+        <defs>
+          <marker id="mkA" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6b7280"></path></marker>
+        </defs>
+        <rect x="60" y="18" width="600" height="38" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="360" y="42" font-size="13" text-anchor="middle" fill="#1f2937">x: string | number | null —— 进函数时，三种可能都在</text>
+        <line x1="360" y1="56" x2="140" y2="106" stroke="#6b7280" marker-end="url(#mkA)"></line>
+        <line x1="360" y1="56" x2="475" y2="106" stroke="#6b7280" marker-end="url(#mkA)"></line>
+        <text x="228" y="74" font-size="11" text-anchor="middle" fill="#6b7280">x === null 成立</text>
+        <text x="452" y="74" font-size="11" text-anchor="middle" fill="#6b7280">不成立</text>
+        <rect x="40" y="106" width="200" height="36" rx="8" fill="#fef2f2" stroke="#dc2626"></rect>
+        <text x="140" y="129" font-size="13" font-weight="bold" text-anchor="middle" fill="#b91c1c">null</text>
+        <text x="140" y="164" font-size="11.5" text-anchor="middle" fill="#6b7280">return '空'（提前返回）</text>
+        <rect x="290" y="106" width="370" height="36" rx="8" fill="#eff6ff" stroke="#2563eb"></rect>
+        <text x="475" y="129" font-size="13" font-weight="bold" text-anchor="middle" fill="#1d4ed8">string | number</text>
+        <line x1="475" y1="142" x2="375" y2="196" stroke="#6b7280" marker-end="url(#mkA)"></line>
+        <line x1="475" y1="142" x2="580" y2="196" stroke="#6b7280" marker-end="url(#mkA)"></line>
+        <text x="398" y="166" font-size="11" text-anchor="end" fill="#6b7280">typeof x === 'string'</text>
+        <text x="500" y="166" font-size="11" text-anchor="start" fill="#6b7280">不成立</text>
+        <rect x="290" y="196" width="170" height="36" rx="8" fill="#f0fdf4" stroke="#16a34a"></rect>
+        <text x="375" y="219" font-size="13" font-weight="bold" text-anchor="middle" fill="#15803d">string</text>
+        <rect x="495" y="196" width="170" height="36" rx="8" fill="#f0fdf4" stroke="#16a34a"></rect>
+        <text x="580" y="219" font-size="13" font-weight="bold" text-anchor="middle" fill="#15803d">number</text>
+        <text x="375" y="256" font-size="11.5" text-anchor="middle" fill="#6b7280">x.length ✓</text>
+        <text x="580" y="256" font-size="11.5" text-anchor="middle" fill="#6b7280">x.toFixed(0) ✓</text>
+        <line x1="700" y1="20" x2="700" y2="246" stroke="#94a3b8" marker-end="url(#mkA)"></line>
+        <text x="690" y="140" font-size="11" text-anchor="middle" fill="#6b7280" transform="rotate(-90 690 140)">可能性越来越少，类型越来越窄</text>
+      </svg>
+      <figcaption>图 3-1 · 收窄的全貌：每个判断把一部分可能性分流出去，越往下类型越窄、能调的方法越确定（对应下方追踪器的 len 函数，全部路径一次看全）</figcaption>
+    </figure>
+
+    <h3>① typeof 收窄——原始类型分岔</h3>
+    <pre id="code-typeof"></pre>
+    <div class="warn"><b>typeof 的坑</b>：返回值只有 8 种字符串（'string' 'number' 'boolean' 'undefined' 'object' 'function' 'symbol' 'bigint'），其中 <code>typeof null === 'object'</code> 是 JS 1995 年的实现 bug，为兼容 30 年没改——<b>排除 null 永远用 === null（第三式），别信 typeof</b>。</div>
+
+    <h3>② 真值收窄——if(x) 排除空</h3>
+    <pre id="code-truthy"></pre>
+    <div class="warn"><b>边界（面试高频）</b>：JS 的 falsy 值共 8 个：false、0、-0、0n、''、null、undefined、NaN。<code>if(x)</code> 在<b>类型层</b>只排除 null/undefined（TS 没有「非空字符串」这种类型），在<b>运行时</b>却滤掉全部 8 个。<code>greet('')</code> 会走进 <code>!name</code> 分支返回「匿名」——类型层完全看不出来。两层永远分开想；想精确排除空串，用 <code>s === ''</code>。</div>
+
+    <h3>③ 相等性收窄——一刀切走某个值</h3>
+    <pre id="code-eq"></pre>
+    <details class="deep"><summary>深挖 · == null 是宽松相等里唯一被推荐的特例</summary>
+      <div class="body">
+        <p>JS 地基里说过 <code>==</code> 会隐式转换、永远别用——但 <code>x == null</code> 是官方背书的例外：它同时匹配 null 和 undefined（且不匹配 falsy 的 0、''）。TS 也认：它会把 <code>x == null</code> 之后 x 的类型同时收掉 null 和 undefined。所以老代码里见到 <code>if (x == null) return;</code> 不是坏味道，是惯用法；新代码统一 <code>===</code> 也完全没问题。</p>
+      </div>
+    </details>
+
+    <h3>④ in 收窄——按「有没有某属性」分岔</h3>
+    <pre id="code-inop"></pre>
+    <p><code>'swim' in pet</code> 问的是对象里有没有 <code>swim</code> 这个键。适合<b>形状不同</b>的对象联合（一个会游一个会飞）；Java 没有对应物（instanceof 只认类，不认形状）——这是结构类型系统的独有分法。</p>
+
+    <h3>⑤ instanceof 收窄——按原型链分岔</h3>
+    <pre id="code-instof"></pre>
+    <p>沿原型链找构造函数，语义同 Java instanceof，适合「类实例 vs 原始值」的混合（Date、RegExp、Error、Map 等）。</p>
+    <div class="warn"><b>两个坑</b>：① 跨 iframe/window 的对象原型不同（两个页面的 Array 互不认识），Web Worker / 第三方 iframe 场景会失手；② <code>'x' instanceof String</code> 永远 false——原始值不是对象，包了 <code>new String('x')</code> 才是。判原始值用 typeof，判对象用 instanceof，别混。</div>
+
+    <h3>⑥ 判别联合——业务建模首选</h3>
+    <p>前五式都是「数据长什么样就怎么分」；第六式反过来——<b>主动把数据设计成好分岔的形状</b>。它值得单独一节，见下。</p>
+
+    <div class="demo-box">
+      <h3>互动 · 收窄追踪器</h3>
+      <p class="muted">这是控制流教学模拟，不是在浏览器里运行 tsc。先选一个输入并预测输出，再用「下一步」逐行核对类型怎样变窄。</p>
+      <div class="ops" id="trackOps" aria-label="选择追踪输入"></div>
+      <div class="ops"><label for="trackGuess">先预测输出：</label><select id="trackGuess"><option value="">请选择</option><option value="空">空</option><option value="5 字">5 字</option><option value="42">42</option></select><span class="muted" id="trackGuessResult" aria-live="polite"></span></div>
+      <pre id="trackCode"></pre>
+      <div class="steps" id="trackSteps" aria-live="polite"></div>
+      <div class="ops"><button class="op" id="trackPrev" type="button">上一步</button><button class="op primary" id="trackNext" type="button">下一步</button></div>
+    </div>
+    <div class="checkpoint" data-checkpoint="q3"></div>
+
+    <details class="deep"><summary>深挖 · 控制流分析：收窄的三个伙伴</summary>
+      <div class="body">
+        <p>收窄不只发生在 if 里——①<b>赋值收窄</b>：<code>let x: string | number = f(); x = 'hi';</code> 赋值那行起 x 就是 string；②<b>提前返回</b>：<code>if (x === null) return 0;</code> 之后 null 被永久排除（return 截断了后续控制流）；③<b>别名跟随</b>：<code>const s = x;</code> 之后对 x 的收窄，s 也跟着享受。TS 编译器对每条语句做的是控制流类型分析——你写的每一行都在缩小「此刻可能的世界」。</p>
+      </div>
+    </details>
+
+    <figure class="fig">
+      <svg viewBox="0 0 770 380" role="img" aria-label="六式选择流程：联合要分岔时，看成员形态选手段——原始类型混合用 typeof，排除空值用真值或相等性判断，不同形状对象用 in，类实例混原始值用 instanceof，互斥业务形态首选判别联合">
+        <defs>
+          <marker id="mkB" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6b7280"></path></marker>
+        </defs>
+        <rect x="16" y="140" width="160" height="64" rx="10" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="96" y="168" font-size="13.5" font-weight="bold" text-anchor="middle" fill="#1f2937">联合要分岔</text>
+        <text x="96" y="188" font-size="12" text-anchor="middle" fill="#6b7280">怎么选式？</text>
+        <line x1="176" y1="172" x2="300" y2="172" stroke="#6b7280"></line>
+        <line x1="300" y1="42" x2="300" y2="338" stroke="#6b7280"></line>
+        <line x1="300" y1="42" x2="396" y2="42" stroke="#6b7280" marker-end="url(#mkB)"></line>
+        <line x1="300" y1="116" x2="396" y2="116" stroke="#6b7280" marker-end="url(#mkB)"></line>
+        <line x1="300" y1="190" x2="396" y2="190" stroke="#6b7280" marker-end="url(#mkB)"></line>
+        <line x1="300" y1="264" x2="396" y2="264" stroke="#6b7280" marker-end="url(#mkB)"></line>
+        <line x1="300" y1="338" x2="396" y2="338" stroke="#6b7280" marker-end="url(#mkB)"></line>
+        <rect x="400" y="20" width="354" height="44" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="412" y="46" font-size="12.5" fill="#1f2937">① typeof —— 原始类型分岔（null 用 ===）</text>
+        <rect x="400" y="94" width="354" height="44" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="412" y="120" font-size="12.5" fill="#1f2937">②/③ 真值、相等性 —— 排除 null、undefined</text>
+        <rect x="400" y="168" width="354" height="44" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="412" y="194" font-size="12.5" fill="#1f2937">④ in —— 不同形状的对象</text>
+        <rect x="400" y="242" width="354" height="44" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="412" y="268" font-size="12.5" fill="#1f2937">⑤ instanceof —— 类实例 vs 原始值</text>
+        <rect x="400" y="316" width="354" height="44" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"></rect>
+        <text x="412" y="342" font-size="12.5" font-weight="bold" fill="#1d4ed8">⑥ 判别联合 —— 互斥业务形态（首选 ★）</text>
+      </svg>
+      <figcaption>图 3-2 · 六式的选择：先看联合成员是什么形态，再选分岔手段；建模新数据时直接上⑥判别联合，不满足于现成判断</figcaption>
+    </figure>
+    <div class="takeaway"><strong>本节记住：</strong>收窄不是强制转换，而是控制流证明；选择手段时先看成员形态，同时分清类型层收窄与运行时过滤。</div>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section class="card" data-learning-section id="sec-4">
+    <h2>4 · 判别联合：业务建模的第一选择</h2>
+    <p class="lead">把一组互斥的形状建成联合，每个成员带一个<b>字面量类型的标签字段</b>。switch 标签 → 自动收窄到对应成员。这是 TS 里最接近「Java enum + 多态」的表达力，也是类型安全收益最大的一招。</p>
+    <div class="chapter-goal"><strong>本节目标：</strong>能把可选属性堆叠改造成判别联合，并解释为什么非法状态会因此变得无法表达。</div>
+
+    <h3>4.1 先看烂版本长什么样</h3>
+    <pre id="code-bad"></pre>
+    <p>三宗罪：①<b>不合法状态可表达</b>——<code>kind: 'circle'</code> 却没有 r 完全合法；②每个属性都是 <code>number | undefined</code>，用起来步步惊心；③新增形状时编译器<b>一言不发</b>，错误漏到运行时（NaN 静默传播，报表里一列 NaN 才发现）。</p>
+
+    <h3>4.2 正确版本</h3>
+    <pre id="code-du"></pre>
+    <p>逐行看门道：<code>kind</code> 在每个成员里是<b>不同的字面量类型</b>（'circle' vs 'square'）——这正是 switch 能精确分流的依据，这样的字段叫<b>判别字段（discriminant）</b>。注意判别字段标普通 <code>string</code> 不行（无法区分成员），必须是字面量类型。case 内部 s 自动收窄为 Circle / Square，<code>s.r</code>、<code>s.w</code> 放心用，没有任何 <code>?.</code> 和 <code>?? 0</code>。</p>
+    <p><b>Java 对照</b>：这就是 Java 17 的 <code>sealed interface</code> + <code>record</code> + 模式匹配 switch 干的事——permits 白名单 = 联合成员，pattern case = 自动收窄。两个语言殊途同归（TS 从 2012 年起就能这么写）。</p>
+    <p><b>实战模式</b>：API 响应建模 <code>type Result&lt;T&gt; = { status: 'ok'; data: T } | { status: 'err'; message: string }</code>——比抛异常更适合前端：错误是<b>数据</b>而不是控制流，渲染层 switch 一下就分流，还能配合下一节的 never 穷尽检查防漏。</p>
+
+    <h3>互动 · 判别联合路由图</h3>
+    <p class="muted">点击不同的 kind 值，看 switch 把它路由到哪个分支、收窄成什么类型——squiggle 是故意「没写分支」的新成员。</p>
+    <div class="demo-box">
+      <div class="ops" id="routerOps" aria-label="选择判别字段值"></div>
+      <div class="lanes" id="routerLanes"></div>
+      <div class="note" id="routerNote" aria-live="polite" hidden></div>
+    </div>
+    <div class="takeaway"><strong>本节记住：</strong>判别字段让每个业务形态拥有明确标签；联合负责限制合法状态，switch 负责按标签安全分流。</div>
+  </section>
+
+  <!-- ============ 5 ============ -->
+  <section class="card" data-learning-section id="sec-5">
+    <h2>5 · unknown 与 never：两个极端类型</h2>
+    <p class="lead">unknown = 任意值但<b>不许直接用</b>（逼你证明）；never = 不可能是任何值（收窄的尽头）。一个是外部数据的正确入口，一个是重构安全的守护神。</p>
+    <div class="chapter-goal"><strong>本节目标：</strong>能为外部数据写出完整的 unknown 收窄链，并用 never 让漏写的分支在编译期暴露。</div>
+
+    <h3>5.1 unknown：诚实的 any</h3>
+    <p>any 是「检查器闭嘴」，而且<b>传染</b>（初识 TypeScript 的 3307 案例：any 的数据一路放行，运行时算出错的值）。unknown 是「我知道我不知道」：什么值都能装进去，但想用它，必须先收窄证明类型。赋值方向一表看清：</p>
+    <table>
+      <tr><th>操作</th><th>any</th><th>unknown</th></tr>
+      <tr><td>任何值 → 赋给它</td><td>✓</td><td>✓</td></tr>
+      <tr><td>它 → 赋给具体类型 / 直接使用</td><td>✓（静默放行，错的也过）</td><td>✗ 编译期拦下，必须先收窄</td></tr>
+      <tr><td>传染性</td><td>用它的表达式跟着变 any</td><td>不传染，收窄后就是具体类型</td></tr>
+    </table>
+    <pre id="code-unknown"></pre>
+    <p>收窄链逐层看：① <code>typeof data === 'object'</code> 排除原始值；② <code>data !== null</code> <b>必不可少</b>——typeof null === 'object' 的历史 bug（第 3 节埋的雷在这炸）；③ <code>'port' in data</code> 证明键存在，但 <b>in 之后取出的属性仍是 unknown</b>，要单独再收窄一次。</p>
+
+    <figure class="fig">
+      <svg viewBox="0 0 700 366" role="img" aria-label="unknown 收窄链：data 经过四道关卡逐层证明——typeof 等于 object 排除原始值、不等于 null 排除空值、port 键 in 检查、port 是 number；每层不合格的值当场止步，全部通过才放行 port 加 1">
+        <defs>
+          <marker id="mkD" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6b7280"></path></marker>
+          <marker id="mkDg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#16a34a"></path></marker>
+        </defs>
+        <rect x="110" y="18" width="310" height="38" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="265" y="42" font-size="12.5" text-anchor="middle" fill="#1f2937">typeof data === 'object'</text>
+        <line x1="265" y1="56" x2="265" y2="84" stroke="#6b7280" marker-end="url(#mkD)"></line>
+        <rect x="110" y="88" width="310" height="38" rx="8" fill="#fef2f2" stroke="#dc2626"></rect>
+        <text x="265" y="112" font-size="12.5" text-anchor="middle" fill="#b91c1c">data !== null</text>
+        <line x1="265" y1="126" x2="265" y2="154" stroke="#6b7280" marker-end="url(#mkD)"></line>
+        <rect x="110" y="158" width="310" height="38" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="265" y="182" font-size="12.5" text-anchor="middle" fill="#1f2937">'port' in data</text>
+        <line x1="265" y1="196" x2="265" y2="224" stroke="#6b7280" marker-end="url(#mkD)"></line>
+        <text x="275" y="214" font-size="11" fill="#6b7280">const port = data.port（仍是 unknown）</text>
+        <rect x="110" y="228" width="310" height="38" rx="8" fill="#f3f4f6" stroke="#9ca3af"></rect>
+        <text x="265" y="252" font-size="12.5" text-anchor="middle" fill="#1f2937">typeof port === 'number'</text>
+        <line x1="265" y1="266" x2="265" y2="296" stroke="#16a34a" stroke-width="2" marker-end="url(#mkDg)"></line>
+        <rect x="110" y="300" width="310" height="40" rx="8" fill="#f0fdf4" stroke="#16a34a"></rect>
+        <text x="265" y="325" font-size="12.5" font-weight="bold" text-anchor="middle" fill="#15803d">port: number —— 放行 port + 1</text>
+        <line x1="420" y1="37" x2="456" y2="37" stroke="#94a3b8" marker-end="url(#mkD)"></line>
+        <text x="462" y="41" font-size="11.5" fill="#6b7280">原始值 → 止步</text>
+        <line x1="420" y1="107" x2="456" y2="107" stroke="#94a3b8" marker-end="url(#mkD)"></line>
+        <text x="462" y="103" font-size="11.5" fill="#6b7280">null → 止步</text>
+        <text x="462" y="118" font-size="11" fill="#6b7280">（typeof null 也是 'object'）</text>
+        <line x1="420" y1="177" x2="456" y2="177" stroke="#94a3b8" marker-end="url(#mkD)"></line>
+        <text x="462" y="181" font-size="11.5" fill="#6b7280">没有 port 键 → 止步</text>
+        <line x1="420" y1="247" x2="456" y2="247" stroke="#94a3b8" marker-end="url(#mkD)"></line>
+        <text x="462" y="251" font-size="11.5" fill="#6b7280">port 不是数字 → 止步</text>
+      </svg>
+      <figcaption>图 5-1 · unknown 收窄链（对应示例 03）：每层判断排除一类可能、不合格的当场出局；漏掉任何一层（尤其 ② null 检查），编译器都不放行</figcaption>
+    </figure>
+    <div class="note"><b>陷阱</b>：<code>JSON.parse()</code> 的返回类型是 <code>any</code> 不是 unknown——直接 <code>const data = JSON.parse(s)</code> 拿到的是 any（传染入口）。要 <code>const data: unknown = JSON.parse(s)</code> 显式改标，防线才真正立起来。</div>
+
+    <h3>5.2 never：空集，收窄的尽头</h3>
+    <p>never 表示「不可能是任何值」，三种出场：①<b>穷尽检查</b>（本节主角）；②永不返回的函数（直接 throw 或 <code>while (true)</code>）；③收窄到互相矛盾（string &amp; number）。推导穷尽检查只要三步：</p>
+    <ol>
+      <li>switch 覆盖了联合的<b>全部</b>成员 → default 分支不可达 → 那里 s 的类型是 never；</li>
+      <li><code>const _exhaustive: never = s;</code> 把 never 赋给 never，安然无恙（这行成了「我承诺全覆盖」的声明）；</li>
+      <li>某天联合<b>新增成员</b> Squiggle 而你忘了写 case → Squiggle 流到 default → s 变成 Squiggle → 塞不进 never → <b>TS2322 当场报错</b>，精确到行和列。</li>
+    </ol>
+    <pre id="code-never"></pre>
+    <div class="note"><b>一句话</b>：改类型定义（加一个成员），编译器替你找出全项目所有「该改而没改」的 switch——把「新增形状」从提心吊胆变成例行公事，这是判别联合 + never 的组合拳，也是重构安全感的来源。</div>
+    <div class="checkpoint" data-checkpoint="q6"></div>
+    <div class="takeaway"><strong>本节记住：</strong>unknown 要求先证明再使用；never 用来表达不可能，把漏处理的联合成员留在 default 时就会变成可检查的编译错误。</div>
+  </section>
+
+  <!-- ============ 6 ============ -->
+  <section class="card" data-learning-section id="sec-6">
+    <h2>6 · 常见误区</h2>
+    <table>
+      <tr><th>误区</th><th>真相</th><th>纠正</th></tr>
+      <tr><td>联合类型能直接用两边的方法</td><td>只能用<b>共有</b>成员，其余要收窄</td><td>typeof / 判别联合，见第 3/4 节</td></tr>
+      <tr><td><code>if (x)</code> 收窄 = 排除 null 就够了</td><td>运行时还滤掉 ''、0、NaN 等全部 8 个 falsy</td><td>区分「类型层排除」和「运行时排除」；要精确用 ===</td></tr>
+      <tr><td>typeof x === 'object' 就当对象用</td><td>null 的 typeof 也是 'object'</td><td>再补 <code>&amp;&amp; x !== null</code>（第 5 节收窄链第②层）</td></tr>
+      <tr><td>外部数据标个接口类型就安全了</td><td>标注是「担保」不是「验证」</td><td>入口用 unknown，收窄/校验后再进业务</td></tr>
+      <tr><td>JSON.parse 之后类型是 unknown</td><td>返回 any，正在传染</td><td>显式 <code>: unknown</code> 改标再收窄</td></tr>
+      <tr><td>枚举用 number（1/2/3）当 kind</td><td>数字判别照样工作，但可读性差、日志里对不上</td><td>kind 用字符串字面量：'circle' | 'square'</td></tr>
+      <tr><td>switch 写完 default: break 就完了</td><td>错过穷尽检查的保护</td><td>default 里放 <code>const _check: never = s</code></td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 7 ============ -->
+  <section class="card" data-learning-section id="sec-7">
+    <h2>7 · 综合动手练习：先写你的答案，再对照参考</h2>
+    <p class="lead">这里不伪装浏览器判分。先独立完成代码，再展开参考答案逐行对照；真实类型结论请用题目附带的 tsc 命令在本地验证。</p>
+    <div class="chapter-goal"><strong>完成标准：</strong>不看参考答案写出代码，并能解释每一处收窄为什么成立。草稿只保存在本浏览器，与阅读进度、闯关成绩分开管理。</div>
+    <button class="op" id="btnClearDrafts" type="button">清空全部代码草稿</button>
+    <div id="exHost"></div>
+  </section>
+
+  <!-- ============ 8 ============ -->
+  <section class="card" data-learning-section id="sec-8">
+    <h2>8 · 综合闯关与错题重做</h2>
+    <p class="lead">3 道即时检验已经放在对应章节；这里完成剩余 5 道综合题。作答后看解析并回到相关章节，答错可以重做，顶部单独统计练习成绩。</p>
+    <div class="ops"><button class="op" id="btnReviewWrong" type="button">定位第一道错题</button><span class="muted" id="wrongSummary" aria-live="polite">尚无错题记录。</span></div>
+    <div id="quizHost"></div>
+  </section>
+
+  <!-- ============ 9 ============ -->
+  <section class="card" data-learning-section id="sec-9">
+    <h2>9 · 闭卷回忆、迁移与配套文件</h2>
+    <p class="lead">先不看前文作答，再展开核对。能滚到页尾不等于学会，能独立回忆和迁移才是本页的完成标准。</p>
+    <div class="recall">
+      <details><summary>1. 为什么联合类型未收窄前只能调用共有成员？</summary><p>因为编译器必须保证代码对联合中的每一种可能都成立。独有成员需要先通过控制流判断证明当前值的类型，见第 2、3 节。</p></details>
+      <details><summary>2. if (x) 的类型层效果和运行时效果有什么不同？</summary><p>对普通 string、number 等宽类型，类型层不会得到「非空字符串」或「非零数字」；运行时却会过滤全部 falsy 值。需要精确排除某个值时使用相等性判断。</p></details>
+      <details><summary>3. 外部 JSON 数据为什么应该标成 unknown，而不是接口或 any？</summary><p>接口标注只是开发者担保，any 会关闭检查并传染；unknown 承认入口数据尚未验证，迫使代码逐层收窄，见第 5 节。</p></details>
+      <details><summary>4. 判别联合与 never 怎样在重构时配合？</summary><p>新增联合成员却漏写 case 时，新成员会进入 default，使 default 中的值不再是 never，赋给 never 的穷尽检查随即报 TS2322。</p></details>
+    </div>
+    <div class="chapter-goal"><strong>迁移任务：</strong>把 API 响应建模为 <code>{ status: 'ok'; data: T } | { status: 'err'; message: string }</code>，写一个渲染函数处理两种状态，再用 never 做穷尽检查；最后新增 <code>loading</code> 状态，观察编译器怎样定位漏改处。</div>
+    <div class="note"><strong>轻量复习建议：</strong>1 天后重做错题，3 天后闭卷回答上面四题，7 天后独立完成迁移任务。这里只是学习建议，不会自动创建外部提醒。</div>
+    <h3>配套文件与下一站</h3>
+    <ul>
+      <li><b>本地真跑</b>：<a href="示例代码/01-收窄六式.ts">示例代码/01-收窄六式.ts</a>（六式零错误 + 实测输出）、<a href="示例代码/02-穷尽检查的威力.ts">02-穷尽检查的威力.ts</a>（预期恰好 1 个 TS2322）、<a href="示例代码/03-unknown的正确打开方式.ts">03-unknown的正确打开方式.ts</a>（TS18046 演示）——本页所有报错文本与参考答案均与本机 tsc 5.9.3 实测一致；检查命令：<code>npx -p typescript@5 tsc --strict --noEmit 文件名</code></li>
+      <li><b>前置</b>：<a href="../初识TypeScript/知识详解.md">初识 TypeScript</a>（类型擦除、any 传染）与 <a href="../JavaScript极速地基/知识详解.md">JavaScript 极速地基</a>（typeof、falsy、原始类型）</li>
+      <li><b>下一站</b>：函数与对象类型（interface vs type、可选/只读）会继续使用本页的联合与收窄；as const 与类型断言则帮助你控制字面量推导。</li>
+      <li><b>八股速记</b>：判别联合 + never 穷尽检查、unknown vs any、widening、真值收窄边界、JSON.parse 返回 any——只用于面试前回顾，不替代上面的闭卷回忆。</li>
+    </ul>
+  </section>
+
+  </main>
+</div>
+<footer class="page-footer">单文件离线学习页 · 阅读记录、练习成绩和代码草稿分别保存在当前浏览器</footer>
+<button class="op back-top" id="btnBackTop" type="button">返回顶部</button>
+
+<script src="../系列导航.js"></script>
+<script>
+'use strict';
+/* ================================================================
+ * 学习页 · 基础类型与收窄
+ * 结构：知识解析（静态） + 两个互动组件 + 动手练习（先写再对照） + 闯关练习判分 + 进度
+ * ================================================================ */
+
+/* ---------- 极简代码高亮（先转义再着色） ---------- */
+var HL_RE = /(\/\/[^\n]*)|('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")|\b(function|return|if|else|switch|case|default|const|let|var|type|typeof|instanceof|in|new|of|for|while|never|unknown|string|number|boolean|null|undefined|true|false|void|Math|console)\b|(\b\d+(?:\.\d+)?\b)/g;
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function hl(code) {
+  return esc(code).replace(HL_RE, function (m, c, s, k, n) {
+    if (c) return '<span class="c-com">' + c + '</span>';
+    if (s) return '<span class="c-str">' + s + '</span>';
+    if (k) return '<span class="c-kw">' + k + '</span>';
+    return '<span class="c-num">' + n + '</span>';
+  });
+}
+function fillPre(id, code) { document.getElementById(id).innerHTML = hl(code); }
+
+/* ---------- localStorage 安全访问（隐私模式降级，学习功能不受影响） ---------- */
+var storageAvailable = true;
+function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { storageAvailable = false; return null; } }
+function lsSet(k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { storageAvailable = false; return false; } }
+function lsRemove(k) { try { window.localStorage.removeItem(k); } catch (e) { storageAvailable = false; } }
+function showStorageState() { document.getElementById('storageNote').hidden = storageAvailable; }
+
+/* ---------- 静态代码块 ---------- */
+var SNIPPETS = {
+  'code-num': "// TS 只有一种数字：number（IEEE 754 双精度浮点）\nconst price = 1.13, count = 50;\nconsole.log(count * price);              // 56.49999999999999（不是 56.5！本机实测）\nconsole.log((count * price).toFixed(2)); // '56.50'\n\n// 对照 Java：byte/short/int/long/float/double 六兄弟 → TS 全部是 number\n// 大整数（超过 2^53-1）用 bigint：const id = 9007199254740993n;",
+  'code-nulluv': "let a: string = undefined;     // error TS2322（strict 下 null/undefined 不再是万物默认值）\nlet b: string | null = null;   // ✓ 可空必须显式写进联合\n\nlet c: string | undefined;     // 声明未赋值 → 自动就是 undefined\nconsole.log(c);                // undefined（'从来没有'由语言自动产生）\nconsole.log(b);                // null（只有你手写才会出现的'明确置空'）",
+  'code-tuple': "const tags: string[] = ['ts', 'js'];        // 数组：长度不限，元素同型（string[] 等价 Array<string>）\nconst pair: [number, string] = [1, 'hi'];  // 元组：定长 + 每位定类型 + 顺序敏感\npair[0].toFixed(2);                        // ✓ pair[0] 推导为 number\npair[1].toUpperCase();                     // ✓ pair[1] 推导为 string\n\n// 带标签的元组（TS 4.0+）：含义写进类型，读代码不用背下标\ntype Point = [x: number, y: number];\nconst p: Point = [3, 4];\nconst dist = Math.sqrt(p[0] ** 2 + p[1] ** 2);   // p[0] 即 x",
+  'code-lit': "type Direction = 'asc' | 'desc';    // 字面量联合：合法取值就这两个\nlet d: Direction = 'asc';\nd = 'up';                           // error TS2322: '\"up\"' 不能赋给 '\"asc\" | \"desc\"'\n\nfunction label(v: string | number) {\n  return v.toString();   // ✓ 共有成员：两种类型都有 toString\n  // return v.trim();    // ✗ error TS2339: number 没有 trim——联合只放行共有成员\n}",
+  'code-typeof': "function format(value: string | number): string {\n  if (typeof value === 'string') {\n    return value.trim();      // 此分支 value: string——trim 可用\n  }\n  return value.toFixed(2);    // 走到这 value: number——toFixed 可用\n}\n// typeof 返回值只有 8 种：'string' 'number' 'boolean' 'undefined'\n//                        'object' 'function' 'symbol' 'bigint'\n// ⚠ typeof null === 'object'——排除 null 别用它，用 === null（第三式）",
+  'code-truthy': "function greet(name: string | null): string {\n  if (!name) return '匿名';      // name: string | null 都可能进来（'' 也是 falsy）\n  return name.toUpperCase();     // name: string——null 被排除\n}\n\n// falsy 全家福（8 个）：false  0  -0  0n  ''  null  undefined  NaN\n// if(x) 的两层语义——类型层：只排除 null/undefined；运行时：滤掉上面全部 8 个",
+  'code-eq': "function textLen(x: string | null): number {\n  if (x === null) return 0;   // 相等性收窄：一刀切走 null\n  return x.length;            // x: string\n}\n// 变体：x === undefined 只切 undefined；两者都要切可以写 x == null（见下方深挖）",
+  'code-inop': "type Fish = { swim: () => void };\ntype Bird = { fly: () => void };\n\nfunction move(pet: Fish | Bird) {\n  if ('swim' in pet) {\n    pet.swim();    // pet: Fish\n  } else {\n    pet.fly();     // pet: Bird\n  }\n}\n// 'swim' in pet 问的是「对象里有没有 swim 这个键」——形状不同时的分法",
+  'code-instof': "function logTime(t: Date | string) {\n  if (t instanceof Date) {\n    console.log(t.toISOString());   // t: Date\n  } else {\n    console.log(t.toUpperCase());   // t: string\n  }\n}\n// instanceof 沿原型链找构造函数——语义同 Java instanceof\n// ⚠ 跨 iframe/window 原型不同会失手；'x' instanceof String 永远 false（原始值不是对象）",
+  'code-bad': "// ✗ 烂版本：可选属性堆叠——什么形状都装得下，等于没建模\ntype BadShape = {\n  kind?: string;      // 普通字符串，区分不了圆还是方\n  r?: number;         // 每个属性都「可能有」\n  w?: number;\n};\n\nfunction badArea(s: BadShape): number {\n  if (s.kind === 'circle') {\n    return Math.PI * (s.r ?? 0) ** 2;   // r 还是 number | undefined，被迫 ?? 0\n  }\n  return (s.w ?? 0) ** 2;               // 忘了判 w？NaN 静默传播，运行时才炸\n}",
+  'code-du': "type Circle = { kind: 'circle'; r: number };\ntype Square = { kind: 'square'; w: number };\ntype Shape = Circle | Square;        // 判别联合\n\nfunction area(s: Shape): number {\n  switch (s.kind) {                  // kind 是判别字段（字面量类型）\n    case 'circle': return Math.PI * s.r ** 2;   // s: Circle，r 放心用\n    case 'square': return s.w ** 2;             // s: Square\n  }\n}",
+  'code-unknown': "// 示例 03：入口 unknown，一层层证明\nconst data: unknown = JSON.parse('{\"port\":3306}');\n// console.log(data + 1);        // error TS18046: 'data' is of type 'unknown'.\n\nif (typeof data === 'object' && data !== null && 'port' in data) {\n  const port = data.port;        // in 收窄后：port 仍是 unknown\n  if (typeof port === 'number') {\n    console.log(port + 1);       // port: number，放行（输出 3307）\n  }\n}",
+  'code-never': "// 示例 02：Shape 新增 Squiggle，area 忘了加分支（预期报错）\ntype Shape = Circle | Square | Squiggle;\nfunction area(s: Shape): number {\n  switch (s.kind) {\n    case 'circle': return Math.PI * s.r ** 2;\n    case 'square': return s.w ** 2;\n    default: {\n      const _exhaustive: never = s;   // ← Squiggle 流到这里，塞不进 never\n      return 0;\n    }\n  }\n}\n// 真实报错（tsc 5.9.3）：02-穷尽检查的威力.ts(20,13):\n//   error TS2322: Type 'Squiggle' is not assignable to type 'never'."
+};
+
+/* ---------- 组件 1：收窄追踪器 ---------- */
+var TRACK = {
+  code: "function len(x: string | number | null) {\n  if (x === null) return '空';\n  if (typeof x === 'string') return x.length + ' 字';\n  return x.toFixed(0);\n}",
+  choices: [
+    { label: 'x = null', steps: [
+      { line: "if (x === null)", from: 'string | number | null', to: 'null', note: '相等性收窄：条件成立' },
+      { line: "return '空'", to: 'null', note: '在 null 分支里返回，无路可走' }
+    ], out: '输出：空' },
+    { label: "x = 'hello'（string）", steps: [
+      { line: 'if (x === null)', from: 'string | number | null', to: 'string | number', note: '不成立，null 被排除' },
+      { line: "if (typeof x === 'string')", from: 'string | number', to: 'string', note: 'typeof 收窄：条件成立' },
+      { line: 'return x.length', to: 'string', note: 'string 里 length 可用' }
+    ], out: '输出：5 字' },
+    { label: 'x = 42（number）', steps: [
+      { line: 'if (x === null)', from: 'string | number | null', to: 'string | number', note: '不成立，null 被排除' },
+      { line: "if (typeof x === 'string')", from: 'string | number', to: 'number', note: '不成立，string 被排除' },
+      { line: 'return x.toFixed(0)', to: 'number', note: 'number 里 toFixed 可用' }
+    ], out: '输出：42' }
+  ]
+};
+var trackChoice = 1;
+var trackStep = 0;
+function selectTrack(index) {
+  trackChoice = index;
+  trackStep = 0;
+  var ops = document.getElementById('trackOps');
+  Array.prototype.forEach.call(ops.children, function (x, i) { x.classList.toggle('on', i === index); });
+  document.getElementById('trackGuessResult').textContent = '预测已记录，走到最后一步核对。';
+  updateTrackStep();
+}
+function updateTrackStep() {
+  var c = TRACK.choices[trackChoice];
+  var s = c.steps[trackStep];
+  var host = document.getElementById('trackSteps');
+  host.innerHTML = '<div class="step-count">第 ' + (trackStep + 1) + ' / ' + c.steps.length + ' 步 · ' + esc(c.label) + '</div>'
+    + '<div class="step"><code class="line">' + esc(s.line) + '</code>'
+    + (s.from ? '<span class="tchip">' + esc(s.from) + '</span><span class="arrow-t">→</span>' : '')
+    + '<span class="tchip">' + esc(s.to) + '</span><span class="note-s">' + esc(s.note) + '</span></div>';
+  document.getElementById('trackPrev').disabled = trackStep === 0;
+  document.getElementById('trackNext').textContent = trackStep === c.steps.length - 1 ? '重新追踪' : '下一步';
+  if (trackStep === c.steps.length - 1) {
+    host.innerHTML += '<div class="note"><b>实际结果：</b>' + esc(c.out) + '</div>';
+    var guess = document.getElementById('trackGuess').value;
+    var expected = c.out.replace('输出：', '');
+    document.getElementById('trackGuessResult').textContent = !guess ? '还没有选择预测，可以选完后重新追踪。' : (guess === expected ? '预测正确。' : '预测不一致，对照上面的类型变化再找原因。');
+  }
+}
+function renderTrack() {
+  fillPre('trackCode', TRACK.code);
+  var ops = document.getElementById('trackOps');
+  ops.innerHTML = '';
+  TRACK.choices.forEach(function (c, i) {
+    var b = document.createElement('button');
+    b.className = 'op';
+    b.type = 'button';
+    b.textContent = c.label;
+    b.addEventListener('click', function () { selectTrack(i); });
+    ops.appendChild(b);
+  });
+  document.getElementById('trackPrev').addEventListener('click', function () { if (trackStep > 0) { trackStep--; updateTrackStep(); } });
+  document.getElementById('trackNext').addEventListener('click', function () {
+    if (trackStep === TRACK.choices[trackChoice].steps.length - 1) trackStep = 0;
+    else trackStep++;
+    updateTrackStep();
+  });
+  document.getElementById('trackGuess').addEventListener('change', function () {
+    if (trackStep === TRACK.choices[trackChoice].steps.length - 1) { updateTrackStep(); return; }
+    document.getElementById('trackGuessResult').textContent = '预测已记录，走到最后一步核对。';
+  });
+  selectTrack(1);
+}
+
+/* ---------- 组件 2：判别联合路由图 ---------- */
+var ROUTER = {
+  kinds: [
+    { kind: 'circle', lane: "case 'circle'", member: 'Circle', props: 'r 可用（number）', result: 'return Math.PI * s.r ** 2', cls: 'hit', err: null,
+      note: "kind === 'circle' 成立 → s 收窄为 Circle，r 放心用。" },
+    { kind: 'square', lane: "case 'square'", member: 'Square', props: 'w 可用（number）', result: 'return s.w ** 2', cls: 'hit', err: null,
+      note: "kind === 'square' 成立 → s 收窄为 Square。" },
+    { kind: 'squiggle', lane: 'default（没写分支！）', member: 'Squiggle', props: 'len 可用，但没人处理它', result: 'const _exhaustive: never = s', cls: 'err',
+      err: "error TS2322: Type 'Squiggle' is not assignable to type 'never'.",
+      note: '新成员流到 default：s 是 Squiggle（不是 never），塞进 never 立刻报错——编译器点名你漏了分支。' }
+  ]
+};
+function renderRouter() {
+  var ops = document.getElementById('routerOps');
+  var lanes = document.getElementById('routerLanes');
+  lanes.innerHTML = ROUTER.kinds.map(function (k, i) {
+    return '<div class="lane" id="lane' + i + '"><h4>传入 { kind: <b>' + esc(k.kind) + '</b>, … }</h4>'
+      + '<p class="muted">路由到：' + esc(k.lane) + '</p>'
+      + '<p>收窄为 <span class="tchip">' + esc(k.member) + '</span></p>'
+      + '<p class="muted">' + esc(k.props) + '</p>'
+      + '<pre style="font-size:11.5px;">' + hl(k.result) + '</pre>'
+      + (k.err ? '<div class="errbox">' + esc(k.err) + '</div>' : '')
+      + '</div>';
+  }).join('');
+  ROUTER.kinds.forEach(function (k, i) {
+    var b = document.createElement('button');
+    b.className = 'op';
+    b.type = 'button';
+    b.textContent = 'kind = ' + k.kind;
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.getElementById('routerLanes').children, function (x) { x.classList.remove('hit', 'err'); });
+      Array.prototype.forEach.call(ops.children, function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      document.getElementById('lane' + i).classList.add(k.cls === 'hit' ? 'hit' : 'err');
+      var note = document.getElementById('routerNote');
+      note.hidden = false;
+      note.textContent = k.note;
+    });
+    ops.appendChild(b);
+  });
+  if (ops.children.length) { ops.children[0].click(); }
+}
+
+/* ---------- 动手练习（先写再对照，不判分） ---------- */
+var EXERCISES = [
+  {
+    id: 'ex1', title: '练习 1 · typeof 收窄：format',
+    task: '实现 <code>format</code>：字符串去首尾空格；数字保留两位小数（返回字符串）。要求只用一次 <code>typeof</code> 判断。',
+    sig: "function format(value: string | number): string {\n  // 写你自己的答案（提示：string 分支 trim()，number 分支 toFixed(2)）\n}",
+    answer: "function format(value: string | number): string {\n  if (typeof value === 'string') {\n    return value.trim();      // 此分支 value: string\n  }\n  return value.toFixed(2);    // 走到这 value: number\n}",
+    explain: [
+      '判断在哪一行生效：if 里面 value 是 string，能调 trim；剩下的路径只有 number，能调 toFixed(2)。',
+      "不收窄直接调 value.trim() 会报：error TS2339: Property 'trim' does not exist on type 'string | number'.——因为 number 没有 trim，联合只放行共有成员（第 2.3 节）。",
+      "本地验证：答案存成 .ts 文件，跑 npx -p typescript@5 tsc --strict --noEmit 文件名。对应的运行结果（示例代码 01 实测）：format('  hi  ') → 'hi'，format(3.14159) → '3.14'。"
+    ]
+  },
+  {
+    id: 'ex2', title: '练习 2 · 判别联合 + 体验穷尽检查：area',
+    task: 'Shape 是 Circle | Square | Squiggle 三成员。先把 <code>area</code> 补到 tsc 零错误；然后<b>故意删掉 squiggle 分支</b>再跑一次 tsc 观察报错；最后补回来。',
+    sig: "type Circle   = { kind: 'circle';   r: number };\ntype Square   = { kind: 'square';   w: number };\ntype Squiggle = { kind: 'squiggle'; len: number };\ntype Shape = Circle | Square | Squiggle;\n\nfunction area(s: Shape): number {\n  switch (s.kind) {\n    // 写你自己的答案：三个 case + default 穷尽检查\n  }\n  return 0;\n}",
+    answer: "function area(s: Shape): number {\n  switch (s.kind) {\n    case 'circle':\n      return Math.PI * s.r ** 2;      // s: Circle\n    case 'square':\n      return s.w ** 2;                // s: Square\n    case 'squiggle':\n      return s.len;                   // s: Squiggle\n    default: {\n      const _exhaustive: never = s;   // 分支全时不可达\n      return 0;\n    }\n  }\n}",
+    explain: [
+      "删掉 case 'squiggle' 后，Squiggle 流到 default，s 在那里是 Squiggle 而不是 never，真实报错（本机 tsc 5.9.3）：error TS2322: Type 'Squiggle' is not assignable to type 'never'.（完整文件见 示例代码/02，报错位置 (20,13)）",
+      '这个练习的完整闭环：改类型定义（加成员）→ 编译器点名所有漏改的 switch → 补分支。把「新增形状」从提心吊胆变成例行公事。',
+      '本地验证：npx -p typescript@5 tsc --strict --noEmit 02-穷尽检查的威力.ts（预期恰好这一个错误）。'
+    ]
+  },
+  {
+    id: 'ex3', title: '练习 3 · 真值收窄的边界：safeUpper',
+    task: '实现 <code>safeUpper</code>：null 返回 \'匿名\'，字符串返回大写。<b>写完先回答：safeUpper(\'\') 会返回什么？</b>再展开答案验证。',
+    sig: "function safeUpper(s: string | null): string {\n  // 写你自己的答案\n}",
+    answer: "function safeUpper(s: string | null): string {\n  if (!s) {\n    return '匿名';        // '' 也 falsy，会走到这——空串和 null 被统一处理\n  }\n  return s.toUpperCase(); // s: string\n}",
+    explain: [
+      "safeUpper('') 返回 '匿名'——空串是 8 个 falsy 值之一，!s 成立。这不是 bug 是特性：把「空输入」和「没输入」统一处理，对输入框场景通常正好是想要的。",
+      "想放行空串（'' 也 toUpperCase）？改用相等性收窄：if (s === null) return '匿名'; return s.toUpperCase();——类型层和运行时层都精确。",
+      '记住边界：if(s) 在类型层只排除 null/undefined（s 收窄为 string），运行时却滤掉全部 8 个 falsy。两层永远分开想（第 3 节第二式）。',
+      "本地验证：类型版存 .ts 跑 npx -p typescript@5 tsc --strict --noEmit（零错误）；行为把等价 JS 存 .js 直接 node 一跑——safeUpper('') 确实返回 '匿名'。"
+    ]
+  },
+  {
+    id: 'ex4', title: '练习 4 · unknown 收窄链（进阶）：parsePort',
+    task: '实现 <code>parsePort</code>：入参 unknown，形如 <code>{ port: 数字 }</code> 时返回端口号，否则返回 -1。要求每一层收窄都有依据。',
+    sig: "function parsePort(raw: unknown): number {\n  // 写你自己的答案（提示：三层收窄）\n}",
+    answer: "function parsePort(raw: unknown): number {\n  if (typeof raw === 'object' && raw !== null && 'port' in raw) {\n    const port = raw.port;         // in 之后 port 仍是 unknown\n    if (typeof port === 'number') {\n      return port;                 // port: number，放行\n    }\n  }\n  return -1;\n}",
+    explain: [
+      "三层各自的依据：typeof === 'object' 排除原始值；!== null 必不可少（typeof null === 'object' 的历史 bug，第 3 节埋的雷在这炸）；'port' in raw 证明键存在。",
+      "in 收窄只保证「有这个键」，不保证值的类型——raw.port 仍是 unknown，必须再 typeof 一次。少任何一层，直接用 raw.port 都会被 TS18046 拦下。",
+      '为什么不直接标成 { port: number } 完事？——标注是「担保」不是「验证」（初识 TypeScript 的教训）：外部数据进门那一刻你其实什么都不知道，unknown 是唯一诚实的起点。',
+      '本地验证：同款收窄链见 示例代码/03（npx -p typescript@5 tsc --strict --noEmit 零错误）；TS18046 的复现方式也在该文件里——直接对 unknown 做 data + 1 运算。'
+    ]
+  }
+];
+function draftKey(ex) { return 'ts-kb-narrowing-ex-' + ex.id; }
+function renderExercises() {
+  var host = document.getElementById('exHost');
+  host.innerHTML = '';
+  EXERCISES.forEach(function (ex) {
+    var box = document.createElement('div');
+    box.className = 'ex';
+    box.innerHTML = '<h4>' + esc(ex.title) + '</h4>'
+      + '<p class="task">' + ex.task + '</p>'
+      + '<pre>' + hl(ex.sig) + '</pre>'
+      + '<label for="' + ex.id + '-draft">你的答案</label>'
+      + '<textarea id="' + ex.id + '-draft" aria-describedby="' + ex.id + '-draft-status" spellcheck="false" placeholder="在这里写你的答案；草稿自动保存，写完再展开参考答案"></textarea>'
+      + '<div class="ops"><button class="op" id="' + ex.id + '-copy" type="button">复制草稿</button><button class="op" id="' + ex.id + '-clear" type="button">清空本题草稿</button></div>'
+      + '<p class="draft-status" id="' + ex.id + '-draft-status" aria-live="polite">草稿仅保存在本浏览器。</p>'
+      + '<details class="answer"><summary>参考答案与讲解（先自己写完再展开）</summary><div class="body">'
+      + '<pre>' + hl(ex.answer) + '</pre>'
+      + ex.explain.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('')
+      + '</div></details>';
+    host.appendChild(box);
+    var ta = document.getElementById(ex.id + '-draft');
+    var key = draftKey(ex);
+    var saved = lsGet(key);
+    if (saved !== null) { ta.value = saved; }
+    ta.addEventListener('input', function () {
+      lsSet(key, ta.value);
+      document.getElementById(ex.id + '-draft-status').textContent = storageAvailable ? '草稿已保存。' : '暂时保留在本次页面中。';
+      showStorageState();
+    });
+    document.getElementById(ex.id + '-copy').addEventListener('click', function () { copyText(ta.value, this); });
+    document.getElementById(ex.id + '-clear').addEventListener('click', function () {
+      if (!window.confirm('只清空本题代码草稿，阅读记录和闯关成绩不受影响。确定继续吗？')) { return; }
+      ta.value = ''; lsRemove(key);
+      document.getElementById(ex.id + '-draft-status').textContent = '本题草稿已清空。';
+    });
+    enhanceCodeBlocks(box);
+  });
+}
+
+/* ---------- 闯关练习与判分 ---------- */
+var QUIZ = [
+  { id: 'q1', type: 'single', stem: '要让 pair[0] 推导为 number、pair[1] 推导为 string，const pair 应该标什么类型？',
+    options: ['[number, string]（元组）', 'number[]', '(number | string)[]', 'Array<number | string>'],
+    answer: 0,
+    explain: '元组 [number, string] 定长且每位定类型；后三个只知道「里面是数字或字符串」，pair[0] 的类型是 number | string，分不清谁是谁（第 1.3 节）。' },
+  { id: 'q2', type: 'single', stem: "const dir = 'asc' 与 let dir2 = 'asc'，dir / dir2 各推导为什么类型？",
+    options: ["都是 'asc'", '都是 string', "dir: 'asc'，dir2: string", "dir: string，dir2: 'asc'"],
+    answer: 2,
+    explain: "const 不会再改，类型精确到值 'asc'（字面量类型）；let 可能被重新赋值，TS 故意「拓宽」为 string，否则 dir2 = 'desc' 就报错了。这叫字面量拓宽（widening），第 2 节深挖。" },
+  { id: 'q3', type: 'blank', stem: '填空：把下面 if 分支里可以调用的数字格式化方法补全（保留两位小数）：',
+    code: "function f(x: string | number) {\n  if (typeof x === 'number') {\n    return x.________(2);\n  }\n  return x.trim();\n}",
+    accept: ['toFixed'],
+    explain: "typeof x === 'number' 把 x 收窄为 number，toFixed 可用；另一分支收窄为 string，trim 可用。这是 typeof 收窄的最小完整样例（第 3 节第一式）。" },
+  { id: 'q4', type: 'single', stem: "猜输出：function g(s: string | null) { if (!s) return '?'; return s.toUpperCase(); } 调用 g('') 返回什么？",
+    options: ["''（空串）", "'?'", '抛 TypeError', 'undefined'],
+    answer: 1,
+    explain: "运行时 if (!s) 对空串成立（'' 是 8 个 falsy 之一），返回 '?'。注意类型系统只把 string | null 收窄成 string——「滤掉空串」是运行时行为，类型层不体现（第 3 节第二式的边界）。" },
+  { id: 'q5', type: 'multi', stem: '判别联合相比「可选属性堆叠」（{ kind?: string; r?: number; w?: number }）的优点有哪些？（多选）',
+    options: [
+      '收窄后能安全访问对应成员的属性（case 里直接 s.r）',
+      '新增成员配合 never 穷尽检查，漏写分支编译期点名',
+      '运行时更省内存',
+      '可以少写类型标注'
+    ],
+    answers: [0, 1],
+    explain: 'A、B 是判别联合的两大杀器：不合法状态无法表达 + 重构安全（第 4 节三宗罪的反面）。C 是无稽之谈——类型编译后擦除，运行时无差异；D 恰恰相反，判别联合要多写类型定义，换来的是检查强度。' },
+  { id: 'q6', type: 'single', stem: 'unknown 和 any 的区别，一句话说对的是：',
+    options: [
+      '都能直接调用方法',
+      'unknown 必须先收窄（证明类型）才能使用，any 直接放行且传染',
+      'any 必须先收窄，unknown 直接放行',
+      '没有区别，只是拼写不同'
+    ],
+    answer: 1,
+    explain: 'any = 「检查器闭嘴」且传染下游；unknown = 「我知道我不知道」，不许直接用，typeof / in 收窄后才能动。外部数据的入口应该用 unknown（第 5.1 节，示例 03）。' },
+  { id: 'q7', type: 'single', stem: '预判编译结果：这段代码用 tsc --strict 检查会怎样？',
+    code: "function f(x: string | number | null) {\n  if (x) {\n    return x.length;\n  }\n  return 0;\n}",
+    options: [
+      '编译通过——if (x) 把 x 收窄成了 string',
+      '报错——真值收窄只排除了 null/undefined，x 仍是 string | number，number 上没有 length',
+      '报错——x 可能是 null，要先排除 null',
+      '编译通过，但运行时一定崩溃'
+    ],
+    answer: 1,
+    explain: "真实报错（本机实测）：error TS2339: Property 'length' does not exist on type 'string | number'.（附注：Property 'length' does not exist on type 'number'.）——'hi' 和 42 都是 truthy，真值收窄后 x 还是 string | number。修法：再嵌一层 if (typeof x === 'string')。" },
+  { id: 'q8', type: 'single', stem: '穷尽检查里 default 分支写 const _check: never = s; 的作用是？',
+    options: [
+      '运行时抛出异常提醒调用方',
+      '联合新增成员而 switch 漏写分支时，这一行编译期报错',
+      '把返回值类型变成 never',
+      '提升运行性能'
+    ],
+    answer: 1,
+    explain: '分支齐全时 s 在 default 里确实是 never，赋值安然无恙；一旦加了新成员（如 Squiggle）而你忘了写 case，流到 default 的类型不再是 never，赋值立刻报 TS2322——编译器替你找出所有「该改而没改」的 switch（示例 02 真实报错：Type Squiggle is not assignable to type never）。' }
+];
+
+var QUIZ_SECTION = { q1: 'sec-1', q2: 'sec-2', q3: 'sec-3', q4: 'sec-3', q5: 'sec-4', q6: 'sec-5', q7: 'sec-3', q8: 'sec-5' };
+var PROG_KEY = 'ts-kb-narrowing-v2';
+function loadProg() { try { return JSON.parse(lsGet(PROG_KEY) || '{}'); } catch (e) { return {}; } }
+function saveProg(p) { lsSet(PROG_KEY, JSON.stringify(p)); showStorageState(); }
+var progress = loadProg();
+
+function updateWrongSummary() {
+  var wrong = QUIZ.filter(function (q) { return progress[q.id] === false; });
+  document.getElementById('wrongSummary').textContent = wrong.length ? '还有 ' + wrong.length + ' 道错题，可定位后重做。' : '当前没有错题记录。';
+  document.getElementById('btnReviewWrong').disabled = wrong.length === 0;
+}
+function updateProgress() {
+  var ids = QUIZ.map(function (q) { return q.id; });
+  var done = ids.filter(function (i) { return progress[i] !== undefined; }).length;
+  var correct = ids.filter(function (i) { return progress[i] === true; }).length;
+  document.getElementById('progressText').textContent = '练习：' + correct + ' 对 / ' + done + ' 已做 / 共 ' + ids.length;
+  updateWrongSummary();
+}
+function setStatus(qid, ok) {
+  var chip = document.getElementById(qid + '-status');
+  chip.textContent = ok ? '✓ 答对' : '✗ 答错（可重做）';
+  chip.className = 'status ' + (ok ? 'ok' : 'bad');
+  progress[qid] = ok;
+  saveProg(progress);
+  updateProgress();
+}
+function reveal(qid) {
+  document.getElementById(qid + '-explain').classList.add('show');
+}
+
+function renderQuiz() {
+  var finalHost = document.getElementById('quizHost');
+  finalHost.innerHTML = '';
+  Array.prototype.forEach.call(document.querySelectorAll('[data-checkpoint]'), function (host) { host.innerHTML = ''; });
+  QUIZ.forEach(function (q, idx) {
+    var checkpoint = document.querySelector('[data-checkpoint="' + q.id + '"]');
+    renderQuizItem(q, idx, checkpoint || finalHost, null);
+  });
+  updateProgress();
+}
+function renderQuizItem(q, idx, host, refNode) {
+    var box = document.createElement('div');
+    box.className = 'quiz';
+    box.id = q.id;
+    var inner = '<span class="status" id="' + q.id + '-status" aria-live="polite">未做</span>'
+      + '<div class="stem"><b>第 ' + (idx + 1) + ' 题</b> · ' + esc(q.stem) + '</div>';
+    if (q.code) inner += '<pre>' + hl(q.code) + '</pre>';
+    inner += '<div id="' + q.id + '-body"></div>'
+      + '<div class="explain" id="' + q.id + '-explain"><b>解析：</b>' + esc(q.explain) + '<br><a href="#' + QUIZ_SECTION[q.id] + '">回到相关章节复习</a></div>'
+      + '<div class="ops"><button class="op" type="button" id="' + q.id + '-redo" style="display:none;">重做本题</button></div>';
+    box.innerHTML = inner;
+    host.insertBefore(box, refNode);
+    var body = document.getElementById(q.id + '-body');
+
+    if (q.type === 'single') {
+      q.options.forEach(function (opt, oi) {
+        var b = document.createElement('button');
+        b.className = 'opt';
+        b.type = 'button';
+        b.textContent = String.fromCharCode(65 + oi) + '. ' + opt;
+        b.addEventListener('click', function () {
+          var opts = body.children;
+          for (var i = 0; i < opts.length; i++) { opts[i].disabled = true; }
+          opts[q.answer].classList.add('right');
+          if (oi !== q.answer) { b.classList.add('wrong'); }
+          setStatus(q.id, oi === q.answer);
+          reveal(q.id);
+          showRedo(q.id);
+        });
+        body.appendChild(b);
+      });
+    } else if (q.type === 'multi') {
+      q.options.forEach(function (opt, oi) {
+        var l = document.createElement('label');
+        l.className = 'opt';
+        l.innerHTML = '<input type="checkbox" value="' + oi + '">' + esc(opt);
+        body.appendChild(l);
+      });
+      var submit = document.createElement('button');
+      submit.className = 'op';
+      submit.type = 'button';
+      submit.textContent = '提交答案';
+      submit.addEventListener('click', function () {
+        var picked = [];
+        var inputs = body.querySelectorAll('input');
+        for (var i = 0; i < inputs.length; i++) { if (inputs[i].checked) picked.push(i); }
+        if (!picked.length) {
+          var emptyStatus = document.getElementById(q.id + '-status');
+          emptyStatus.textContent = '请先选择再提交';
+          return;
+        }
+        var ok = picked.length === q.answers.length && picked.every(function (v, i) { return v === q.answers[i]; });
+        var labels = body.querySelectorAll('label');
+        q.answers.forEach(function (a) { labels[a].classList.add('right'); });
+        if (!ok) picked.filter(function (v) { return q.answers.indexOf(v) < 0; }).forEach(function (v) { labels[v].classList.add('wrong'); });
+        var inputs2 = body.querySelectorAll('input');
+        for (var j = 0; j < inputs2.length; j++) { inputs2[j].disabled = true; }
+        setStatus(q.id, ok);
+        reveal(q.id);
+        showRedo(q.id);
+      });
+      body.appendChild(submit);
+    } else if (q.type === 'blank') {
+      var input = document.createElement('input');
+      input.className = 'blank-input';
+      input.placeholder = '填方法名';
+      input.setAttribute('aria-label', '第 ' + (idx + 1) + ' 题填空答案');
+      var sb = document.createElement('button');
+      sb.className = 'op';
+      sb.type = 'button';
+      sb.textContent = '提交';
+      sb.addEventListener('click', function () {
+        var v = input.value.trim();
+        if (!v) { document.getElementById(q.id + '-status').textContent = '请先填写再提交'; return; }
+        var ok = q.accept.indexOf(v) >= 0;
+        if (!ok) { input.style.borderColor = 'var(--bad)'; } else { input.style.borderColor = 'var(--ok)'; }
+        setStatus(q.id, ok);
+        reveal(q.id);
+        showRedo(q.id);
+      });
+      body.appendChild(input);
+      body.appendChild(sb);
+    }
+
+    if (progress[q.id] !== undefined) {
+      var chip = document.getElementById(q.id + '-status');
+      chip.textContent = progress[q.id] ? '之前已答对' : '之前答错（可重做）';
+      chip.className = 'status ' + (progress[q.id] ? 'ok' : 'bad');
+      if (progress[q.id] === false) { showRedo(q.id); }
+    }
+    enhanceCodeBlocks(box);
+}
+function showRedo(qid) {
+  var btn = document.getElementById(qid + '-redo');
+  btn.style.display = '';
+  btn.onclick = function () {
+    delete progress[qid];
+    saveProg(progress);
+    var q = null;
+    for (var i = 0; i < QUIZ.length; i++) { if (QUIZ[i].id === qid) { q = QUIZ[i]; } }
+    var idx = QUIZ.indexOf(q);
+    var box = document.getElementById(qid);
+    var parent = box.parentNode;
+    var next = box.nextSibling;
+    parent.removeChild(box);
+    renderQuizItem(q, idx, parent, next);
+    updateProgress();
+    var nb = document.getElementById(qid);
+    if (nb.scrollIntoView) { nb.scrollIntoView(); }
+  };
+}
+
+/* ---------- 基础体验组件：复制、阅读状态、目录、继续学习 ---------- */
+function copyText(text, button) {
+  function markCopied() {
+    var old = button.textContent;
+    button.textContent = '已复制';
+    window.setTimeout(function () { button.textContent = old; }, 1200);
+  }
+  function fallback() {
+    var area = document.createElement('textarea');
+    area.value = text;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    try { document.execCommand('copy'); markCopied(); }
+    catch (e) { button.textContent = '请手动复制'; }
+    document.body.removeChild(area);
+  }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(markCopied, fallback);
+  } else { fallback(); }
+}
+function enhanceCodeBlocks(root) {
+  Array.prototype.forEach.call((root || document).querySelectorAll('pre'), function (pre) {
+    if (pre.parentNode.classList && pre.parentNode.classList.contains('code-block')) { return; }
+    var wrapper = document.createElement('div');
+    wrapper.className = 'code-block';
+    pre.parentNode.insertBefore(wrapper, pre);
+    wrapper.appendChild(pre);
+    var btn = document.createElement('button');
+    btn.className = 'op copy-code';
+    btn.type = 'button';
+    btn.textContent = '复制代码';
+    btn.addEventListener('click', function () { copyText(pre.textContent, btn); });
+    wrapper.insertBefore(btn, pre);
+  });
+}
+function wrapTables() {
+  Array.prototype.forEach.call(document.querySelectorAll('section.card table'), function (table) {
+    if (table.parentNode.classList.contains('table-wrap')) { return; }
+    var wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    table.parentNode.insertBefore(wrap, table);
+    wrap.appendChild(table);
+  });
+}
+function getSections() { return Array.prototype.slice.call(document.querySelectorAll('[data-learning-section]')); }
+var READ_KEY = 'ts-kb-narrowing-read-v1';
+var LAST_KEY = 'ts-kb-narrowing-last-v1';
+function loadRead() {
+  try { return JSON.parse(lsGet(READ_KEY) || '{}'); } catch (e) { return {}; }
+}
+var readState = loadRead();
+function saveRead() { lsSet(READ_KEY, JSON.stringify(readState)); showStorageState(); }
+function updateReadProgress() {
+  var sections = getSections();
+  var done = sections.filter(function (s) { return !!readState[s.id]; }).length;
+  document.getElementById('readProgressText').textContent = '章节：' + done + ' / ' + sections.length;
+  document.getElementById('readProgressFill').style.width = (sections.length ? done / sections.length * 100 : 0) + '%';
+  sections.forEach(function (section) {
+    var complete = !!readState[section.id];
+    Array.prototype.forEach.call(document.querySelectorAll('[data-section-link="' + section.id + '"]'), function (link) {
+      link.classList.toggle('done', complete);
+    });
+    var button = section.querySelector('[data-section-complete]');
+    if (button) {
+      button.setAttribute('aria-pressed', complete ? 'true' : 'false');
+      button.textContent = complete ? '本节已标记，点击撤销' : '标记本节已学';
+    }
+  });
+}
+function setCurrentSection(id) {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-section-link]'), function (link) {
+    var active = link.getAttribute('data-section-link') === id;
+    link.classList.toggle('active', active);
+    if (active) { link.setAttribute('aria-current', 'location'); }
+    else { link.removeAttribute('aria-current'); }
+  });
+}
+function sectionTitle(section) {
+  var link = document.querySelector('[data-section-link="' + section.id + '"]');
+  return (link ? link.textContent : section.id).trim();
+}
+function initSectionActions() {
+  var sections = getSections();
+  sections.forEach(function (section, i) {
+    var actions = document.createElement('div');
+    actions.className = 'section-actions';
+    var prev = document.createElement('a');
+    prev.href = i > 0 ? '#' + sections[i - 1].id : '#pageTitle';
+    prev.textContent = i > 0 ? '上一节：' + sectionTitle(sections[i - 1]) : '回到学习目标';
+    var button = document.createElement('button');
+    button.className = 'op';
+    button.type = 'button';
+    button.setAttribute('data-section-complete', section.id);
+    button.addEventListener('click', function () {
+      if (readState[section.id]) { delete readState[section.id]; }
+      else { readState[section.id] = true; lsSet(LAST_KEY, section.id); }
+      saveRead();
+      updateReadProgress();
+    });
+    var next = document.createElement('a');
+    next.href = i < sections.length - 1 ? '#' + sections[i + 1].id : '#pageTitle';
+    next.textContent = i < sections.length - 1 ? '下一节：' + sectionTitle(sections[i + 1]) : '完成学习，回到目标';
+    actions.appendChild(prev); actions.appendChild(button); actions.appendChild(next);
+    section.appendChild(actions);
+  });
+}
+function initNavigation() {
+  var desktopLinks = Array.prototype.slice.call(document.querySelectorAll('nav.side a'));
+  var mobileToc = document.getElementById('mobileToc');
+  mobileToc.innerHTML = document.getElementById('desktopToc').innerHTML;
+  var allLinks = desktopLinks.concat(Array.prototype.slice.call(mobileToc.querySelectorAll('a')));
+  allLinks.forEach(function (link) {
+    link.setAttribute('data-section-link', link.getAttribute('href').slice(1));
+    link.addEventListener('click', function () {
+      lsSet(LAST_KEY, link.getAttribute('data-section-link'));
+      mobileToc.parentNode.removeAttribute('open');
+    });
+  });
+  var sections = getSections();
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          setCurrentSection(entry.target.id);
+          lsSet(LAST_KEY, entry.target.id);
+          showStorageState();
+        }
+      });
+    }, { rootMargin: '-18% 0px -65% 0px', threshold: 0 });
+    sections.forEach(function (section) { observer.observe(section); });
+  } else if (sections.length) {
+    setCurrentSection(sections[0].id);
+  }
+}
+function initResume() {
+  var last = lsGet(LAST_KEY);
+  var target = last && document.getElementById(last) ? last : '';
+  if (!target) { document.getElementById('resumeBar').hidden = true; return; }
+  var link = document.querySelector('[data-section-link="' + target + '"]');
+  document.getElementById('resumeText').textContent = '检测到上次学到「' + (link ? link.textContent : target) + '」，可以继续。';
+  document.getElementById('resumeBar').hidden = false;
+  document.getElementById('btnResume').addEventListener('click', function () {
+    document.getElementById(target).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('resumeBar').hidden = true;
+  });
+}
+function initBaseControls() {
+  document.getElementById('btnBackTop').addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  document.getElementById('btnResetRead').addEventListener('click', function () {
+    if (!window.confirm('只重置章节阅读记录和上次位置；练习成绩与代码草稿会保留。确定继续吗？')) { return; }
+    readState = {}; lsRemove(LAST_KEY); saveRead(); updateReadProgress();
+    document.getElementById('resumeBar').hidden = true;
+  });
+  document.getElementById('btnClearDrafts').addEventListener('click', function () {
+    if (!window.confirm('将清空全部 4 道动手练习的代码草稿；阅读记录和闯关成绩会保留。确定继续吗？')) { return; }
+    EXERCISES.forEach(function (ex) {
+      lsRemove(draftKey(ex));
+      var ta = document.getElementById(ex.id + '-draft');
+      if (ta) {
+        ta.value = '';
+        document.getElementById(ex.id + '-draft-status').textContent = '本题草稿已清空。';
+      }
+    });
+  });
+  document.getElementById('btnReviewWrong').addEventListener('click', function () {
+    var wrong = QUIZ.filter(function (q) { return progress[q.id] === false; });
+    if (!wrong.length) { return; }
+    var target = document.getElementById(wrong[0].id);
+    if (target && target.scrollIntoView) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  });
+}
+
+/* ---------- 启动 ---------- */
+function init() {
+  Object.keys(SNIPPETS).forEach(function (id) { fillPre(id, SNIPPETS[id]); });
+  renderTrack();
+  renderRouter();
+  renderExercises();
+  renderQuiz();
+  initNavigation();
+  initSectionActions();
+  initResume();
+  initBaseControls();
+  wrapTables();
+  enhanceCodeBlocks();
+  updateReadProgress();
+  updateProgress();
+  showStorageState();
+  document.getElementById('btnResetProgress').addEventListener('click', function () {
+    if (!window.confirm('只重置闯关练习成绩；阅读记录与代码草稿会保留。确定继续吗？')) { return; }
+    progress = {};
+    saveProg(progress);
+    renderQuiz();
+  });
+}
+init();
+</script>
+</body>
+</html>
